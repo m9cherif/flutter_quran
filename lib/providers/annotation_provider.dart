@@ -186,6 +186,17 @@ class AnnotationProvider extends ChangeNotifier {
     return element != null;
   }
 
+  Word? addWordAtRect(double x1, double y1, double x2, double y2) {
+    if (x2 <= x1 || y2 <= y1) return null;
+    if (isDuplicateWord(x1, y1, x2, y2)) return null;
+    _wordCounter++;
+    final word = Word(id: _wordCounter, x1: x1, y1: y1, x2: x2, y2: y2);
+    _words.add(word);
+    _undoStack.add(UndoAction(type: 'add_word', data: {'id': word.id}));
+    notifyListeners();
+    return word;
+  }
+
   Word? addWordAtPoint(Offset point) {
     final hBounds = findBoundingHLines(point.dy);
     if (hBounds == null) return null;

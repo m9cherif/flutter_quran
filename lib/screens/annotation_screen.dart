@@ -121,15 +121,9 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
     try {
       await ExcelService.autoImportIfExists(
         pageNumber: pageNumber,
-        onWord: (x1, y1, x2, y2) {
-          provider.addWordAtPoint(Offset((x1 + x2) / 2, (y1 + y2) / 2));
-        },
-        onHLine: (y) {
-          provider.addHLine(y);
-        },
-        onVLine: (x, top, bottom) {
-          provider.addVLine(x, top, bottom);
-        },
+        onHLine: (y) => provider.addHLine(y),
+        onVLine: (x, top, bottom) => provider.addVLine(x, top, bottom),
+        onWord: (x1, y1, x2, y2) => provider.addWordAtRect(x1, y1, x2, y2),
       );
     } catch (_) {}
   }
@@ -178,9 +172,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
       final y1 = (m['y1'] as num?)?.toDouble() ?? 0;
       final x2 = (m['x2'] as num?)?.toDouble() ?? 0;
       final y2 = (m['y2'] as num?)?.toDouble() ?? 0;
-      if (x2 > x1 && y2 > y1) {
-        provider.addWordAtPoint(Offset((x1 + x2) / 2, (y1 + y2) / 2));
-      }
+      provider.addWordAtRect(x1, y1, x2, y2);
     }
   }
 
