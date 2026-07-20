@@ -8,6 +8,8 @@ class ControlPanel extends StatelessWidget {
   final VoidCallback onLoadImage;
   final VoidCallback onImportExcel;
   final VoidCallback onExportExcel;
+  final VoidCallback onExportMaskedImage;
+  final VoidCallback onClose;
   final TextEditingController pageInputCtrl;
 
   const ControlPanel({
@@ -16,6 +18,8 @@ class ControlPanel extends StatelessWidget {
     required this.onLoadImage,
     required this.onImportExcel,
     required this.onExportExcel,
+    required this.onExportMaskedImage,
+    required this.onClose,
     required this.pageInputCtrl,
   });
 
@@ -49,10 +53,14 @@ class ControlPanel extends StatelessWidget {
                 _buildVisibilityButtons(theme),
                 const SizedBox(height: 12),
                 _buildImportExportButtons(theme),
+                const SizedBox(height: 8),
+                _buildExportMaskedButton(theme),
                 const SizedBox(height: 12),
                 _buildCounters(theme),
                 const SizedBox(height: 8),
                 _buildStatus(theme),
+                const SizedBox(height: 12),
+                _buildCloseButton(theme),
               ],
             ),
           )),
@@ -363,6 +371,29 @@ class ControlPanel extends StatelessWidget {
     );
   }
 
+  Widget _buildExportMaskedButton(ThemeData theme) {
+    return _styledButton(
+      icon: Icons.image_outlined,
+      label: 'تصدير الصورة المعالجة',
+      shortcut: 'Ctrl+Maj+E',
+      onPressed: onExportMaskedImage,
+      theme: theme,
+      fullWidth: true,
+    );
+  }
+
+  Widget _buildCloseButton(ThemeData theme) {
+    return _styledButton(
+      icon: Icons.close,
+      label: 'إغلاق',
+      shortcut: 'Ctrl+Q',
+      color: Colors.red.shade300,
+      onPressed: onClose,
+      theme: theme,
+      fullWidth: true,
+    );
+  }
+
   Widget _styledButton({
     required IconData icon,
     required String label,
@@ -370,6 +401,7 @@ class ControlPanel extends StatelessWidget {
     Color? color,
     VoidCallback? onPressed,
     required ThemeData theme,
+    bool fullWidth = false,
   }) {
     return Tooltip(
       message: shortcut != null ? '$label ($shortcut)' : label,
@@ -386,7 +418,7 @@ class ControlPanel extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
                 children: [
                   Icon(icon, size: 16, color: onPressed == null ? theme.disabledColor : (color ?? theme.colorScheme.primary)),
                   const SizedBox(width: 4),

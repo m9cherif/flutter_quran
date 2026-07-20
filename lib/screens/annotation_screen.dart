@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../providers/annotation_provider.dart';
@@ -157,6 +159,56 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
     }
   }
 
+  Future<void> _exportMaskedImage() async {
+    if (provider.image == null || provider.currentPageNumber.isEmpty) {
+      _showSnackBar('لم يتم تحميل أي صفحة');
+      return;
+    }
+    try {
+      final page = provider.currentPageNumber;
+      final base = 'G:\\trav_quran2';
+      final outDir = Directory('$base\\image_maske');
+      if (!await outDir.exists()) await outDir.create(recursive: true);
+      final outPath = '$base\\image_maske\\i$page.png';
+
+      final bytes = await File('$base\\png\\page$page.png').readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final src = frame.image;
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      final size = Size(src.width.toDouble(), src.height.toDouble());
+
+      canvas.drawImage(src, Offset.zero, Paint());
+
+      for (var w in provider.words) {
+        final rect = Rect.fromLTRB(w.x1, w.y1, w.x2, w.y2);
+        canvas.drawRect(rect, Paint()
+          ..color = const Color(0xFFFFFFFF)
+          ..style = PaintingStyle.fill);
+        canvas.drawRect(rect, Paint()
+          ..color = const Color(0xFF0000FF)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0);
+      }
+
+      final picture = recorder.endRecording();
+      final img = await picture.toImage(size.width.toInt(), size.height.toInt());
+      final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData != null) {
+        await File(outPath).writeAsBytes(byteData.buffer.asUint8List());
+        _showSnackBar('تم حفظ الصورة المعالجة: image_maske\\i$page.png');
+      }
+    } catch (e) {
+      _showSnackBar('خطأ: $e');
+    }
+  }
+
+  void _closeApp() {
+    exit(0);
+  }
+
   void _showSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -269,7 +321,14 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
         if (isCtrl) _importExcel();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyE:
-        if (isCtrl && !isShift) _exportExcel();
+        if (isCtrl && isShift) {
+          _exportMaskedImage();
+        } else if (isCtrl) {
+          _exportExcel();
+        }
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyQ:
+        if (isCtrl) _closeApp();
         return KeyEventResult.handled;
       default:
         return KeyEventResult.ignored;
@@ -411,6 +470,8 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
         onLoadImage: _loadImage,
         onImportExcel: _importExcel,
         onExportExcel: _exportExcel,
+        onExportMaskedImage: _exportMaskedImage,
+        onClose: _closeApp,
         pageInputCtrl: pageInputCtrl,
       ),
     );

@@ -87,6 +87,7 @@ class AnnotationProvider extends ChangeNotifier {
     final base = _getBaseDirectory();
     Directory('$base\\png').createSync(recursive: true);
     Directory('$base\\annotation').createSync(recursive: true);
+    Directory('$base\\image_maske').createSync(recursive: true);
   }
 
   List<Word> getSortedWords() {
