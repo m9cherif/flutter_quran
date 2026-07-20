@@ -40,6 +40,10 @@ class AnnotationProvider extends ChangeNotifier {
   void reset() {
     _image = null;
     _imageFile = null;
+    clearAnnotations();
+  }
+
+  void clearAnnotations() {
     _hLines.clear();
     _vLines.clear();
     _words.clear();
@@ -252,7 +256,7 @@ class AnnotationProvider extends ChangeNotifier {
   void addVLine(double x, double top, double bottom) {
     final exists = _vLines.any((v) => (v.x - x).abs() < 5);
     if (exists) return;
-    final id = _vLines.isEmpty ? 1 : _vLines.map((v) => v.id).reduce((a, b) => a > b ? b : a) + 1;
+    final id = _vLines.isEmpty ? 1 : _vLines.map((v) => v.id).reduce((a, b) => a > b ? a : b) + 1;
     final line = VLine(id: id, x: x, top: top, bottom: bottom);
     _vLines.add(line);
     _vLines.sort((a, b) => a.x.compareTo(b.x));

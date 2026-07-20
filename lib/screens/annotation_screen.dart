@@ -119,18 +119,25 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
 
   Future<void> _autoImport(String pageNumber) async {
     try {
+      int hCount = 0, vCount = 0, wCount = 0;
       await ExcelService.autoImportIfExists(
         pageNumber: pageNumber,
-        onHLine: (y) => provider.addHLine(y),
-        onVLine: (x, top, bottom) => provider.addVLine(x, top, bottom),
-        onWord: (x1, y1, x2, y2) => provider.addWordAtRect(x1, y1, x2, y2),
+        onHLine: (y) { provider.addHLine(y); hCount++; },
+        onVLine: (x, top, bottom) { provider.addVLine(x, top, bottom); vCount++; },
+        onWord: (x1, y1, x2, y2) { provider.addWordAtRect(x1, y1, x2, y2); wCount++; },
       );
-    } catch (_) {}
+      if (mounted && (hCount > 0 || vCount > 0 || wCount > 0)) {
+        _showSnackBar('تم تحميل H:$hCount V:$vCount كلمات:$wCount');
+      }
+    } catch (e) {
+      if (mounted) _showSnackBar('خطأ في الاستيراد التلقائي: $e');
+    }
   }
 
   Future<void> _importExcel() async {
+    bool replace = false;
     if (mounted) {
-      final replace = await showDialog<bool>(
+      replace = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('استيراد'),
@@ -148,24 +155,29 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
             ),
           ],
         ),
-      );
-      if (replace == true) {
-        _clearAllAnnotations();
-      }
+      ) ?? false;
     }
 
     final data = await ExcelService.importExcel();
     if (data == null || !mounted) return;
 
+    if (replace) {
+      provider.clearAnnotations();
+    }
+
+    int hCount = 0, vCount = 0, wCount = 0;
+
     for (var h in (data['Horizontales'] ?? [])) {
       final y = (h['y'] as num?)?.toDouble() ?? 0;
       provider.addHLine(y);
+      hCount++;
     }
     for (var v in (data['Verticales'] ?? [])) {
       final x = (v['x'] as num?)?.toDouble() ?? 0;
       final top = (v['top'] as num?)?.toDouble() ?? 0;
       final bottom = (v['bottom'] as num?)?.toDouble() ?? 0;
       provider.addVLine(x, top, bottom);
+      vCount++;
     }
     for (var m in (data['Mots'] ?? [])) {
       final x1 = (m['x1'] as num?)?.toDouble() ?? 0;
@@ -173,11 +185,12 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
       final x2 = (m['x2'] as num?)?.toDouble() ?? 0;
       final y2 = (m['y2'] as num?)?.toDouble() ?? 0;
       provider.addWordAtRect(x1, y1, x2, y2);
+      wCount++;
     }
-  }
 
-  void _clearAllAnnotations() {
-    provider.reset();
+    if (mounted) {
+      _showSnackBar('تم استيراد H:$hCount V:$vCount كلمات:$wCount');
+    }
   }
 
   Future<void> _exportExcel() async {
