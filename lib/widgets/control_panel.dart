@@ -8,6 +8,7 @@ class ControlPanel extends StatelessWidget {
   final VoidCallback onLoadImage;
   final VoidCallback onImportExcel;
   final VoidCallback onExportExcel;
+  final TextEditingController pageInputCtrl;
 
   const ControlPanel({
     super.key,
@@ -15,6 +16,7 @@ class ControlPanel extends StatelessWidget {
     required this.onLoadImage,
     required this.onImportExcel,
     required this.onExportExcel,
+    required this.pageInputCtrl,
   });
 
   @override
@@ -100,6 +102,7 @@ class ControlPanel extends StatelessWidget {
             Text('رقم الصفحة', style: theme.textTheme.labelMedium),
             const SizedBox(height: 8),
             TextField(
+              controller: pageInputCtrl,
               decoration: InputDecoration(
                 hintText: 'أدخل رقم الصفحة',
                 suffixIcon: IconButton(

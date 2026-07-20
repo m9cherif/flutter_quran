@@ -120,9 +120,14 @@ class AnnotationPainter extends CustomPainter {
   void paintImage(Canvas canvas, Size size) {
     if (image == null) return;
     final srcSize = Size(image!.width.toDouble(), image!.height.toDouble());
-    final scale = size.width / srcSize.width;
-    final scaledHeight = srcSize.height * scale;
-    final destRect = Rect.fromLTWH(0, 0, size.width, scaledHeight);
+    final scaleX = size.width / srcSize.width;
+    final scaleY = size.height / srcSize.height;
+    final scale = scaleX < scaleY ? scaleX : scaleY;
+    final destW = srcSize.width * scale;
+    final destH = srcSize.height * scale;
+    final offsetX = (size.width - destW) / 2;
+    final offsetY = (size.height - destH) / 2;
+    final destRect = Rect.fromLTWH(offsetX, offsetY, destW, destH);
     canvas.drawImageRect(
       image!,
       Rect.fromLTWH(0, 0, srcSize.width, srcSize.height),

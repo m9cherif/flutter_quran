@@ -5,11 +5,7 @@ import '../models/annotation.dart';
 
 class ExcelService {
   static String getBaseDirectory() {
-    final base = Directory('${Directory.current.path}\\quran_data');
-    if (!base.existsSync()) {
-      base.createSync(recursive: true);
-    }
-    return base.path;
+    return 'G:\\trav_quran2';
   }
 
   static Future<Map<String, List<Map<String, dynamic>>>?> importExcel() async {

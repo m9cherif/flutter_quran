@@ -80,11 +80,7 @@ class AnnotationProvider extends ChangeNotifier {
   }
 
   String _getBaseDirectory() {
-    final base = Directory('${Directory.current.path}\\quran_data');
-    if (!base.existsSync()) {
-      base.createSync(recursive: true);
-    }
-    return base.path;
+    return 'G:\\trav_quran2';
   }
 
   void ensureDirectories() {

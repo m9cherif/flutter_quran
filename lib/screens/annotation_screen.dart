@@ -26,6 +26,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
   void initState() {
     super.initState();
     provider.addListener(_onProviderChange);
+    provider.ensureDirectories();
     focusNode.requestFocus();
   }
 
@@ -42,25 +43,47 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
     if (mounted) setState(() {});
   }
 
-  Offset _screenToScene(Offset screenPoint) {
-    final RenderBox? box = context.findRenderObject() as RenderBox?;
-    if (box == null) return screenPoint;
-    final localPos = box.globalToLocal(screenPoint);
+  Offset _screenToScene(Offset localPos) {
     final matrix = transformCtrl.value;
     final inverted = Matrix4.inverted(matrix);
-    final transformed = MatrixUtils.transformPoint(inverted, localPos);
-    return transformed;
+    return MatrixUtils.transformPoint(inverted, localPos);
+  }
+
+  void _fitImageInView() {
+    if (provider.image == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final size = MediaQuery.of(context).size;
+      final viewW = size.width - 340;
+      final viewH = size.height;
+      final imgW = provider.image!.width.toDouble();
+      final imgH = provider.image!.height.toDouble();
+      final scaleX = viewW / imgW;
+      final scaleY = viewH / imgH;
+      final scale = scaleX < scaleY ? scaleX : scaleY;
+      final tx = (viewW - imgW * scale) / 2;
+      final ty = (viewH - imgH * scale) / 2;
+      final m = Matrix4.identity();
+      m.setEntry(0, 3, tx < 0 ? 0 : tx);
+      m.setEntry(1, 3, ty < 0 ? 0 : ty);
+      m.setEntry(0, 0, scale);
+      m.setEntry(1, 1, scale);
+      transformCtrl.value = m;
+    });
   }
 
   Future<void> _loadImage() async {
     final text = pageInputCtrl.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty) {
+      _showSnackBar('الرجاء إدخال رقم الصفحة');
+      return;
+    }
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
     try {
       await provider.loadPageImage(text);
+      _fitImageInView();
       setState(() {
         _panelAnimKey++;
       });
@@ -145,8 +168,9 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
     );
   }
 
-  void _onTapUp(Offset scenePos) {
+  void _onTapUp(Offset localPos) {
     if (provider.image == null) return;
+    final scenePos = _screenToScene(localPos);
 
     if (provider.moveMode && provider.selectedElement != null) {
       provider.performMove(scenePos);
@@ -162,12 +186,12 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
     provider.addWordAtPoint(scenePos);
   }
 
-  void _updatePreview(Offset screenPos) {
+  void _updatePreview(Offset localPos) {
     if (provider.image == null) {
       provider.clearPreviewRect();
       return;
     }
-    final scenePos = _screenToScene(screenPos);
+    final scenePos = _screenToScene(localPos);
     final hBounds = provider.findBoundingHLines(scenePos.dy);
     if (hBounds == null) {
       provider.clearPreviewRect();
@@ -259,7 +283,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
       autofocus: true,
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0D1117),
+        backgroundColor: Colors.white,
         body: SafeArea(
           child: Row(
             children: [
@@ -274,73 +298,60 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
 
   Widget _buildImageViewer() {
     return Listener(
-      onPointerMove: (event) => _updatePreview(event.position),
+      onPointerMove: (event) {
+        final renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox != null) {
+          _updatePreview(renderBox.globalToLocal(event.position));
+        }
+      },
       child: GestureDetector(
-        onTapUp: (details) {
-          final scenePos = _screenToScene(details.globalPosition);
-          _onTapUp(scenePos);
-        },
+        onTapUp: (details) => _onTapUp(details.localPosition),
         child: Container(
-          color: const Color(0xFF0D1117),
+          color: Colors.white,
           child: Stack(
             children: [
-              InteractiveViewer(
-                transformationController: transformCtrl,
-                constrained: false,
-                boundaryMargin: const EdgeInsets.all(double.infinity),
-                minScale: 0.1,
-                maxScale: 10.0,
-                child: Center(
-                  child: AnimatedBuilder(
-                    animation: Listenable.merge([provider, transformCtrl]),
-                    builder: (context, _) {
-                      if (provider.image == null && !_isLoading) {
-                        return _buildEmptyState();
-                      }
-                      if (provider.image == null && _isLoading) {
-                        return _buildLoadingState();
-                      }
-                      final imgSize = Size(
-                        provider.image!.width.toDouble(),
-                        provider.image!.height.toDouble(),
-                      );
-                      return SizedBox(
-                        width: imgSize.width,
-                        height: imgSize.height,
-                        child: FittedBox(
-                          fit: BoxFit.contain,
-                          child: SizedBox(
-                            width: imgSize.width,
-                            height: imgSize.height,
-                            child: CustomPaint(
-                              painter: AnnotationPainter(
-                                image: provider.image,
-                                hLines: provider.hLines,
-                                vLines: provider.vLines,
-                                words: provider.words,
-                                borderWidth: provider.borderWidth,
-                                showWords: provider.showWords,
-                                showHLines: provider.showHLines,
-                                showVLines: provider.showVLines,
-                                selectedElement: provider.selectedElement,
-                                previewRect: provider.previewRect,
-                              ),
-                              size: imgSize,
-                            ),
-                          ),
+              if (provider.image == null && !_isLoading)
+                _buildEmptyState()
+              else if (provider.image == null && _isLoading)
+                _buildLoadingState()
+              else
+                InteractiveViewer(
+                  transformationController: transformCtrl,
+                  constrained: false,
+                  boundaryMargin: const EdgeInsets.all(double.infinity),
+                  minScale: 0.1,
+                  maxScale: 10.0,
+                  child: SizedBox(
+                    width: provider.image!.width.toDouble(),
+                    height: provider.image!.height.toDouble(),
+                    child: AnimatedBuilder(
+                      animation: Listenable.merge([provider, transformCtrl]),
+                      builder: (context, _) => CustomPaint(
+                        painter: AnnotationPainter(
+                          image: provider.image,
+                          hLines: provider.hLines,
+                          vLines: provider.vLines,
+                          words: provider.words,
+                          borderWidth: provider.borderWidth,
+                          showWords: provider.showWords,
+                          showHLines: provider.showHLines,
+                          showVLines: provider.showVLines,
+                          selectedElement: provider.selectedElement,
+                          previewRect: provider.previewRect,
                         ),
-                      );
-                    },
+                        size: Size(
+                          provider.image!.width.toDouble(),
+                          provider.image!.height.toDouble(),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
               if (_isLoading)
                 Positioned.fill(
                   child: Container(
-                    color: Colors.black54,
-                    child: Center(
-                      child: CircularProgressIndicator(),
-                    ),
+                    color: Colors.white70,
+                    child: const Center(child: CircularProgressIndicator()),
                   ),
                 ),
               if (_errorMessage != null)
@@ -353,12 +364,13 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade900.withAlpha(200),
+                        color: Colors.red.shade100,
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade300),
                       ),
                       child: Text(
                         _errorMessage!,
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        style: const TextStyle(color: Colors.red, fontSize: 13),
                       ),
                     ),
                   ),
@@ -375,14 +387,11 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.auto_stories, size: 80,
-              color: Theme.of(context).colorScheme.primary.withAlpha(100)),
+          Icon(Icons.auto_stories, size: 80, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
             'أدخل رقم الصفحة لبدء التحديد',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withAlpha(150),
-            ),
+            style: TextStyle(fontSize: 18, color: Colors.grey.shade500),
           ),
         ],
       ),
@@ -390,16 +399,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
   }
 
   Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text('جاري التحميل...'),
-        ],
-      ),
-    );
+    return const Center(child: CircularProgressIndicator());
   }
 
   Widget _buildPanel() {
@@ -411,6 +411,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
         onLoadImage: _loadImage,
         onImportExcel: _importExcel,
         onExportExcel: _exportExcel,
+        pageInputCtrl: pageInputCtrl,
       ),
     );
   }
