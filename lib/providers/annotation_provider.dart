@@ -327,11 +327,17 @@ class AnnotationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleMoveMode() {
-    _moveMode = !_moveMode;
-    if (_moveMode && _selectedElement == null) {
-      _moveMode = false;
+  bool toggleMoveMode() {
+    if (_selectedElement == null) {
+      return false;
     }
+    _moveMode = !_moveMode;
+    notifyListeners();
+    return true;
+  }
+
+  void selectAnnotation(Annotation? annotation) {
+    _selectedElement = annotation;
     notifyListeners();
   }
 

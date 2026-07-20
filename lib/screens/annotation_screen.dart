@@ -19,6 +19,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
   final TransformationController transformCtrl = TransformationController();
   final FocusNode focusNode = FocusNode();
   final TextEditingController pageInputCtrl = TextEditingController();
+  final FocusNode pageInputFocus = FocusNode();
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -38,6 +39,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
     transformCtrl.dispose();
     focusNode.dispose();
     pageInputCtrl.dispose();
+    pageInputFocus.dispose();
     super.dispose();
   }
 
@@ -119,6 +121,31 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
   }
 
   Future<void> _importExcel() async {
+    if (mounted) {
+      final replace = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('استيراد'),
+          content: const Text(
+            'هل تريد استبدال جميع التعليقات الحالية؟\n(انقر "لا" للدمج مع الموجودة)',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('لا (دمج)'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('نعم (استبدال)'),
+            ),
+          ],
+        ),
+      );
+      if (replace == true) {
+        _clearAllAnnotations();
+      }
+    }
+
     final data = await ExcelService.importExcel();
     if (data == null || !mounted) return;
 
@@ -143,13 +170,17 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
     }
   }
 
+  void _clearAllAnnotations() {
+    provider.reset();
+  }
+
   Future<void> _exportExcel() async {
     if (provider.currentPageNumber.isEmpty) {
       _showSnackBar('لم يتم تحميل أي صفحة');
       return;
     }
     final ok = await ExcelService.exportExcel(
-      words: provider.words,
+      words: provider.getSortedWords(),
       hLines: provider.hLines,
       vLines: provider.vLines,
       pageNumber: provider.currentPageNumber,
@@ -290,16 +321,18 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
 
     switch (event.logicalKey) {
       case LogicalKeyboardKey.keyA:
-        if (!isCtrl) provider.showAllWords();
+        provider.showAllWords();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyC:
-        if (!isCtrl) provider.hideAllWords();
+        provider.hideAllWords();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyT:
         provider.toggleSelectedWordVisibility();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyM:
-        provider.toggleMoveMode();
+        if (!provider.toggleMoveMode()) {
+          _showSnackBar('الرجاء تحديد عنصر أولاً');
+        }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.delete:
       case LogicalKeyboardKey.backspace:
@@ -309,10 +342,18 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
         provider.cancelMove();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
-        provider.navigateToPrevWord();
+        if (provider.words.isEmpty) {
+          _showSnackBar('لا توجد كلمات للتنقل');
+        } else {
+          provider.navigateToPrevWord();
+        }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowRight:
-        provider.navigateToNextWord();
+        if (provider.words.isEmpty) {
+          _showSnackBar('لا توجد كلمات للتنقل');
+        } else {
+          provider.navigateToNextWord();
+        }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyZ:
         if (isCtrl) provider.undo();
@@ -329,6 +370,12 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyQ:
         if (isCtrl) _closeApp();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyO:
+        if (isCtrl) FocusScope.of(context).requestFocus(pageInputFocus);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyW:
+        if (isCtrl && isShift) provider.toggleWordsVisibility();
         return KeyEventResult.handled;
       default:
         return KeyEventResult.ignored;
@@ -473,6 +520,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
         onExportMaskedImage: _exportMaskedImage,
         onClose: _closeApp,
         pageInputCtrl: pageInputCtrl,
+        pageInputFocus: pageInputFocus,
       ),
     );
   }

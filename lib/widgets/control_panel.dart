@@ -11,6 +11,7 @@ class ControlPanel extends StatelessWidget {
   final VoidCallback onExportMaskedImage;
   final VoidCallback onClose;
   final TextEditingController pageInputCtrl;
+  final FocusNode pageInputFocus;
 
   const ControlPanel({
     super.key,
@@ -21,6 +22,7 @@ class ControlPanel extends StatelessWidget {
     required this.onExportMaskedImage,
     required this.onClose,
     required this.pageInputCtrl,
+    required this.pageInputFocus,
   });
 
   @override
@@ -111,6 +113,7 @@ class ControlPanel extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: pageInputCtrl,
+              focusNode: pageInputFocus,
               decoration: InputDecoration(
                 hintText: 'أدخل رقم الصفحة',
                 suffixIcon: IconButton(
@@ -198,7 +201,7 @@ class ControlPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: InkWell(
-        onTap: () {},
+        onTap: () => provider.selectAnnotation(item),
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -249,17 +252,41 @@ class ControlPanel extends StatelessWidget {
   }
 
   Widget _buildWordControls(ThemeData theme) {
-    return Row(
-      children: [
-        Expanded(
-          child: _styledButton(
-            icon: provider.showWords ? Icons.visibility : Icons.visibility_off,
-            label: 'كلمات',
-            onPressed: provider.toggleWordsVisibility,
-            theme: theme,
+    final checked = provider.showWords;
+    return Tooltip(
+      message: 'إظهار/إخفاء الكلمات (Ctrl+Maj+W)',
+      child: Material(
+        color: checked
+            ? theme.colorScheme.primary.withAlpha(40)
+            : theme.disabledColor.withAlpha(20),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: provider.toggleWordsVisibility,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  checked ? Icons.visibility : Icons.visibility_off,
+                  size: 18,
+                  color: checked ? theme.colorScheme.primary : theme.disabledColor,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'كلمات',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: checked ? FontWeight.bold : FontWeight.normal,
+                    color: checked ? theme.colorScheme.primary : theme.disabledColor,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ],
+      ),
     );
   }
 
