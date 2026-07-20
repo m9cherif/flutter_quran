@@ -80,7 +80,11 @@ class XlsxReader {
           String? rawValue = valueEl?.innerText;
 
           dynamic cellValue;
-          if (cellType == 's' && rawValue != null) {
+          if (cellType == 'inlineStr') {
+            final isEl = cell.findElements('is').firstOrNull;
+            final tEl = isEl?.findElements('t').firstOrNull;
+            cellValue = tEl?.innerText ?? '';
+          } else if (cellType == 's' && rawValue != null) {
             final siIndex = int.tryParse(rawValue);
             if (siIndex != null && siIndex < sharedStrings.length) {
               cellValue = sharedStrings[siIndex];
