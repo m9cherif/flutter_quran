@@ -2,8 +2,10 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../models/annotation.dart';
 import '../providers/annotation_provider.dart';
 import '../services/excel_service.dart';
+import '../services/audio_manager.dart';
 import '../widgets/annotation_painter.dart';
 import '../widgets/control_panel.dart';
 
@@ -21,6 +23,8 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
   final TextEditingController pageInputCtrl = TextEditingController();
   final FocusNode pageInputFocus = FocusNode();
 
+  late final AudioManager audioManager;
+
   bool _isLoading = false;
   String? _errorMessage;
   int _panelAnimKey = 0;
@@ -28,6 +32,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
   @override
   void initState() {
     super.initState();
+    audioManager = AudioManager(provider);
     provider.addListener(_onProviderChange);
     provider.ensureDirectories();
     focusNode.requestFocus();
@@ -36,6 +41,8 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
   @override
   void dispose() {
     provider.removeListener(_onProviderChange);
+    audioManager.cleanup();
+    audioManager.dispose();
     transformCtrl.dispose();
     focusNode.dispose();
     pageInputCtrl.dispose();
@@ -45,6 +52,13 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
 
   void _onProviderChange() {
     if (mounted) setState(() {});
+  }
+
+  void _recordEventOnSelection() {
+    if (audioManager.recording && provider.selectedElement is Word) {
+      final w = provider.selectedElement as Word;
+      audioManager.recordEvent(w.id, 'show');
+    }
   }
 
   Offset _screenToScene(Offset localPos) {
@@ -149,15 +163,6 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
     final data = await ExcelService.importExcel();
     if (data == null || !mounted) return;
 
-    for (var m in (data['Mots'] ?? [])) {
-      final x1 = (m['x1'] as num?)?.toDouble() ?? 0;
-      final y1 = (m['y1'] as num?)?.toDouble() ?? 0;
-      final x2 = (m['x2'] as num?)?.toDouble() ?? 0;
-      final y2 = (m['y2'] as num?)?.toDouble() ?? 0;
-      if (x2 > x1 && y2 > y1) {
-        provider.addWordAtPoint(Offset((x1 + x2) / 2, (y1 + y2) / 2));
-      }
-    }
     for (var h in (data['Horizontales'] ?? [])) {
       final y = (h['y'] as num?)?.toDouble() ?? 0;
       provider.addHLine(y);
@@ -167,6 +172,15 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
       final top = (v['top'] as num?)?.toDouble() ?? 0;
       final bottom = (v['bottom'] as num?)?.toDouble() ?? 0;
       provider.addVLine(x, top, bottom);
+    }
+    for (var m in (data['Mots'] ?? [])) {
+      final x1 = (m['x1'] as num?)?.toDouble() ?? 0;
+      final y1 = (m['y1'] as num?)?.toDouble() ?? 0;
+      final x2 = (m['x2'] as num?)?.toDouble() ?? 0;
+      final y2 = (m['y2'] as num?)?.toDouble() ?? 0;
+      if (x2 > x1 && y2 > y1) {
+        provider.addWordAtPoint(Offset((x1 + x2) / 2, (y1 + y2) / 2));
+      }
     }
   }
 
@@ -263,6 +277,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
     final hit = provider.hitTest(scenePos);
     if (hit != null) {
       provider.trySelectElement(scenePos);
+      _recordEventOnSelection();
       return;
     }
 
@@ -346,6 +361,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
           _showSnackBar('لا توجد كلمات للتنقل');
         } else {
           provider.navigateToPrevWord();
+          _recordEventOnSelection();
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowRight:
@@ -353,6 +369,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
           _showSnackBar('لا توجد كلمات للتنقل');
         } else {
           provider.navigateToNextWord();
+          _recordEventOnSelection();
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyZ:
@@ -376,6 +393,19 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyW:
         if (isCtrl && isShift) provider.toggleWordsVisibility();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.space:
+        if (!isCtrl) audioManager.toggleAudioPlay();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyP:
+        audioManager.togglePlayPause();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyR:
+        if (audioManager.recording) {
+          audioManager.stopRecording();
+        } else {
+          audioManager.startRecording();
+        }
         return KeyEventResult.handled;
       default:
         return KeyEventResult.ignored;
@@ -514,6 +544,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
       child: ControlPanel(
         key: ValueKey('panel_$_panelAnimKey'),
         provider: provider,
+        audioManager: audioManager,
         onLoadImage: _loadImage,
         onImportExcel: _importExcel,
         onExportExcel: _exportExcel,

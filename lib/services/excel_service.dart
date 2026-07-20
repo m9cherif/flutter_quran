@@ -61,28 +61,6 @@ class ExcelService {
 
     final excel = Excel.createExcel();
 
-    if (words.isNotEmpty) {
-      final sheet = excel['Mots'];
-      sheet.appendRow([
-        TextCellValue('x1'),
-        TextCellValue('y1'),
-        TextCellValue('x2'),
-        TextCellValue('y2'),
-        TextCellValue('hidden'),
-        TextCellValue('id'),
-      ]);
-      for (var w in words) {
-        sheet.appendRow([
-          DoubleCellValue(w.x1),
-          DoubleCellValue(w.y1),
-          DoubleCellValue(w.x2),
-          DoubleCellValue(w.y2),
-          BoolCellValue(w.hidden),
-          IntCellValue(w.id),
-        ]);
-      }
-    }
-
     if (hLines.isNotEmpty) {
       final sheet = excel['Horizontales'];
       sheet.appendRow([TextCellValue('y')]);
@@ -103,6 +81,28 @@ class ExcelService {
           DoubleCellValue(v.x),
           DoubleCellValue(v.top),
           DoubleCellValue(v.bottom),
+        ]);
+      }
+    }
+
+    if (words.isNotEmpty) {
+      final sheet = excel['Mots'];
+      sheet.appendRow([
+        TextCellValue('x1'),
+        TextCellValue('y1'),
+        TextCellValue('x2'),
+        TextCellValue('y2'),
+        TextCellValue('hidden'),
+        TextCellValue('id'),
+      ]);
+      for (var w in words) {
+        sheet.appendRow([
+          DoubleCellValue(w.x1),
+          DoubleCellValue(w.y1),
+          DoubleCellValue(w.x2),
+          DoubleCellValue(w.y2),
+          BoolCellValue(w.hidden),
+          IntCellValue(w.id),
         ]);
       }
     }
@@ -129,62 +129,51 @@ class ExcelService {
       final bytes = await file.readAsBytes();
       final excel = Excel.decodeBytes(bytes);
 
-      if (excel.tables.containsKey('Mots')) {
-        final sheet = excel.tables['Mots']!;
+      final hLinesList = <Map<String, dynamic>>[];
+      final vLinesList = <Map<String, dynamic>>[];
+      final wordsList = <Map<String, dynamic>>[];
+
+      for (var table in excel.tables.keys) {
+        final sheet = excel.tables[table];
+        if (sheet == null) continue;
         final rows = sheet.rows;
-        if (rows.length > 1) {
-          final headers = rows.first.map((e) => e?.value?.toString() ?? '').toList();
-          final x1Idx = headers.indexOf('x1');
-          final y1Idx = headers.indexOf('y1');
-          final x2Idx = headers.indexOf('x2');
-          final y2Idx = headers.indexOf('y2');
-          if (x1Idx >= 0 && y1Idx >= 0 && x2Idx >= 0 && y2Idx >= 0) {
-            for (var i = 1; i < rows.length; i++) {
-              final row = rows[i];
-              final x1 = (row[x1Idx]?.value as num?)?.toDouble() ?? 0;
-              final y1 = (row[y1Idx]?.value as num?)?.toDouble() ?? 0;
-              final x2 = (row[x2Idx]?.value as num?)?.toDouble() ?? 0;
-              final y2 = (row[y2Idx]?.value as num?)?.toDouble() ?? 0;
-              if (x2 > x1 && y2 > y1) {
-                onWord(x1, y1, x2, y2);
-              }
-            }
+        if (rows.isEmpty) continue;
+        final headers = rows.first.map((e) => e?.value?.toString() ?? '').toList();
+        for (var i = 1; i < rows.length; i++) {
+          final row = rows[i];
+          final map = <String, dynamic>{};
+          for (var j = 0; j < headers.length && j < row.length; j++) {
+            map[headers[j]] = row[j]?.value;
+          }
+          if (table == 'Horizontales') {
+            hLinesList.add(map);
+          } else if (table == 'Verticales') {
+            vLinesList.add(map);
+          } else if (table == 'Mots') {
+            wordsList.add(map);
           }
         }
       }
 
-      if (excel.tables.containsKey('Horizontales')) {
-        final sheet = excel.tables['Horizontales']!;
-        final rows = sheet.rows;
-        if (rows.length > 1) {
-          final headers = rows.first.map((e) => e?.value?.toString() ?? '').toList();
-          final yIdx = headers.indexOf('y');
-          if (yIdx >= 0) {
-            for (var i = 1; i < rows.length; i++) {
-              final y = (rows[i][yIdx]?.value as num?)?.toDouble() ?? 0;
-              onHLine(y);
-            }
-          }
-        }
+      for (var h in hLinesList) {
+        final y = (h['y'] as num?)?.toDouble() ?? 0;
+        onHLine(y);
       }
 
-      if (excel.tables.containsKey('Verticales')) {
-        final sheet = excel.tables['Verticales']!;
-        final rows = sheet.rows;
-        if (rows.length > 1) {
-          final headers = rows.first.map((e) => e?.value?.toString() ?? '').toList();
-          final xIdx = headers.indexOf('x');
-          final topIdx = headers.indexOf('top');
-          final bottomIdx = headers.indexOf('bottom');
-          if (xIdx >= 0 && topIdx >= 0 && bottomIdx >= 0) {
-            for (var i = 1; i < rows.length; i++) {
-              final row = rows[i];
-              final x = (row[xIdx]?.value as num?)?.toDouble() ?? 0;
-              final top = (row[topIdx]?.value as num?)?.toDouble() ?? 0;
-              final bottom = (row[bottomIdx]?.value as num?)?.toDouble() ?? 0;
-              onVLine(x, top, bottom);
-            }
-          }
+      for (var v in vLinesList) {
+        final x = (v['x'] as num?)?.toDouble() ?? 0;
+        final top = (v['top'] as num?)?.toDouble() ?? 0;
+        final bottom = (v['bottom'] as num?)?.toDouble() ?? 0;
+        onVLine(x, top, bottom);
+      }
+
+      for (var m in wordsList) {
+        final x1 = (m['x1'] as num?)?.toDouble() ?? 0;
+        final y1 = (m['y1'] as num?)?.toDouble() ?? 0;
+        final x2 = (m['x2'] as num?)?.toDouble() ?? 0;
+        final y2 = (m['y2'] as num?)?.toDouble() ?? 0;
+        if (x2 > x1 && y2 > y1) {
+          onWord(x1, y1, x2, y2);
         }
       }
     } catch (_) {}
