@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/annotation.dart';
+import 'xlsx_reader.dart';
 
 class ExcelService {
   static String getBaseDirectory() {
@@ -17,33 +18,11 @@ class ExcelService {
     final filePath = result.files.single.path;
     if (filePath == null) return null;
 
-    final bytes = File(filePath).readAsBytesSync();
-    final excel = Excel.decodeBytes(bytes);
-
-    final data = <String, List<Map<String, dynamic>>>{
-      'Mots': [],
-      'Horizontales': [],
-      'Verticales': [],
-    };
-
-    for (var table in excel.tables.keys) {
-      final sheet = excel.tables[table];
-      if (sheet == null) continue;
-
-      final rows = sheet.rows;
-      if (rows.isEmpty) continue;
-      final headers = rows.first.map((e) => e?.value?.toString() ?? '').toList();
-      for (var i = 1; i < rows.length; i++) {
-        final row = rows[i];
-        final map = <String, dynamic>{};
-        for (var j = 0; j < headers.length && j < row.length; j++) {
-          map[headers[j]] = row[j]?.value;
-        }
-        data[table]!.add(map);
-      }
+    try {
+      return XlsxReader.readXlsx(filePath);
+    } catch (e) {
+      throw Exception('فشل قراءة ملف Excel: $e');
     }
-
-    return data;
   }
 
   static Future<bool> exportExcel({
@@ -126,48 +105,21 @@ class ExcelService {
     if (!await file.exists()) return;
 
     try {
-      final bytes = await file.readAsBytes();
-      final excel = Excel.decodeBytes(bytes);
+      final data = XlsxReader.readXlsx(filePath);
 
-      final hLinesList = <Map<String, dynamic>>[];
-      final vLinesList = <Map<String, dynamic>>[];
-      final wordsList = <Map<String, dynamic>>[];
-
-      for (var table in excel.tables.keys) {
-        final sheet = excel.tables[table];
-        if (sheet == null) continue;
-        final rows = sheet.rows;
-        if (rows.isEmpty) continue;
-        final headers = rows.first.map((e) => e?.value?.toString() ?? '').toList();
-        for (var i = 1; i < rows.length; i++) {
-          final row = rows[i];
-          final map = <String, dynamic>{};
-          for (var j = 0; j < headers.length && j < row.length; j++) {
-            map[headers[j]] = row[j]?.value;
-          }
-          if (table == 'Horizontales') {
-            hLinesList.add(map);
-          } else if (table == 'Verticales') {
-            vLinesList.add(map);
-          } else if (table == 'Mots') {
-            wordsList.add(map);
-          }
-        }
-      }
-
-      for (var h in hLinesList) {
+      for (var h in (data['Horizontales'] ?? [])) {
         final y = (h['y'] as num?)?.toDouble() ?? 0;
         onHLine(y);
       }
 
-      for (var v in vLinesList) {
+      for (var v in (data['Verticales'] ?? [])) {
         final x = (v['x'] as num?)?.toDouble() ?? 0;
         final top = (v['top'] as num?)?.toDouble() ?? 0;
         final bottom = (v['bottom'] as num?)?.toDouble() ?? 0;
         onVLine(x, top, bottom);
       }
 
-      for (var m in wordsList) {
+      for (var m in (data['Mots'] ?? [])) {
         final x1 = (m['x1'] as num?)?.toDouble() ?? 0;
         final y1 = (m['y1'] as num?)?.toDouble() ?? 0;
         final x2 = (m['x2'] as num?)?.toDouble() ?? 0;
@@ -176,6 +128,8 @@ class ExcelService {
           onWord(x1, y1, x2, y2);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      throw Exception('فشل قراءة الملف: $e');
+    }
   }
 }
