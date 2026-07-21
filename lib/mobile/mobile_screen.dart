@@ -283,6 +283,7 @@ class _MobileScreenState extends State<MobileScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _zoomMultiplier = 1.0;
     });
 
     try {
@@ -345,7 +346,7 @@ class _MobileScreenState extends State<MobileScreen> {
     final imgH = provider.image!.height.toDouble();
     final scaleX = viewW / imgW;
     final scaleY = viewH / imgH;
-    if (_isLandscape && !_settings.landscapeFit) return scaleX * _zoomMultiplier;
+    if (_isLandscape && !_settings.landscapeFit) return scaleX;
     return (scaleX < scaleY ? scaleX : scaleY) * _zoomMultiplier;
   }
 
@@ -413,7 +414,16 @@ class _MobileScreenState extends State<MobileScreen> {
         children: [
           Positioned.fill(
             child: Container(
-              color: Colors.white,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: _settings.imageCornerRadius > 0
+                    ? BorderRadius.circular(_settings.imageCornerRadius.toDouble())
+                    : null,
+                border: _settings.showPageBorder
+                    ? Border.all(color: const Color(0xFFD4A843), width: 2)
+                    : null,
+              ),
+              clipBehavior: _settings.imageCornerRadius > 0 ? Clip.antiAlias : Clip.none,
               child: _buildImageViewer(),
             ),
           ),
@@ -889,25 +899,6 @@ class _MobileScreenState extends State<MobileScreen> {
                   0, 0, -1, 0, 255,
                   0, 0, 0, 1, 0,
                 ]),
-                child: imageContent,
-              );
-            }
-
-            if (_settings.imageCornerRadius > 0) {
-              imageContent = ClipRRect(
-                borderRadius: BorderRadius.circular(_settings.imageCornerRadius.toDouble()),
-                child: imageContent,
-              );
-            }
-
-            if (_settings.showPageBorder) {
-              imageContent = Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFD4A843), width: 2),
-                  borderRadius: _settings.imageCornerRadius > 0
-                      ? BorderRadius.circular(_settings.imageCornerRadius.toDouble())
-                      : null,
-                ),
                 child: imageContent,
               );
             }
