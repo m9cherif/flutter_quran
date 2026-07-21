@@ -674,10 +674,7 @@ class _MobileScreenState extends State<MobileScreen> {
       },
       child: GestureDetector(
         onTapUp: (details) {
-          if (provider.image != null) {
-            final imgPos = _screenToImagePos(details.localPosition);
-            provider.trySelectElement(imgPos);
-          }
+          provider.selectAnnotation(null);
           setState(() {
             _showOverlay = !_showOverlay;
             if (_showOverlay && _settings.overlayTimeoutSec > 0) {
