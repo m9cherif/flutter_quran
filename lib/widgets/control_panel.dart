@@ -33,6 +33,8 @@ class ControlPanel extends StatefulWidget {
 }
 
 class _ControlPanelState extends State<ControlPanel> {
+  final TextEditingController _surahCtrl = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +46,7 @@ class _ControlPanelState extends State<ControlPanel> {
   void dispose() {
     widget.audioManager.positionNotifier.removeListener(_onAudioChange);
     widget.audioManager.durationNotifier.removeListener(_onAudioChange);
+    _surahCtrl.dispose();
     super.dispose();
   }
 
@@ -403,6 +406,36 @@ class _ControlPanelState extends State<ControlPanel> {
               ],
             ),
             const SizedBox(height: 6),
+            Row(
+              children: [
+                SizedBox(
+                  width: 60,
+                  child: TextField(
+                    controller: _surahCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'رقم',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onSubmitted: (v) {
+                      if (v.trim().isNotEmpty) a.loadAudioBySurah(v.trim());
+                    },
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text('السورة', style: theme.textTheme.labelSmall),
+                const Spacer(),
+                _styledButton(icon: Icons.download, label: 'تحميل', shortcut: '',
+                  onPressed: () {
+                    final v = _surahCtrl.text.trim();
+                    if (v.isNotEmpty) a.loadAudioBySurah(v);
+                  }, theme: theme),
+              ],
+            ),
+            const SizedBox(height: 6),
             SliderTheme(
               data: SliderThemeData(
                 trackHeight: 4,
@@ -483,13 +516,13 @@ class _ControlPanelState extends State<ControlPanel> {
                   label: a.isRecordingNotifier.value ? 'إيقاف التسجيل' : 'تسجيل',
                   color: a.isRecordingNotifier.value ? Colors.red : null,
                   shortcut: 'R',
-                    onPressed: () {
-                      if (a.recording) {
-                        a.stopRecording();
-                      } else {
-                        a.startRecording();
-                      }
-                    }, theme: theme),
+                    onPressed: () async {
+                       if (a.recording) {
+                         a.stopRecording();
+                       } else {
+                         await a.startRecording();
+                       }
+                     }, theme: theme),
                 _styledButton(
                   icon: Icons.play_circle_outline, label: 'تشغيل',
                   shortcut: 'P',

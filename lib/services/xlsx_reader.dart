@@ -1,11 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
 
 class XlsxReader {
   static Map<String, List<Map<String, dynamic>>> readXlsx(String filePath) {
     final bytes = File(filePath).readAsBytesSync();
+    return _parseBytes(bytes);
+  }
+
+  static Map<String, List<Map<String, dynamic>>> readXlsxFromBytes(Uint8List bytes) {
+    return _parseBytes(bytes);
+  }
+
+  static Map<String, List<Map<String, dynamic>>> _parseBytes(Uint8List bytes) {
     final archive = ZipDecoder().decodeBytes(bytes);
 
     String? workbookXml;

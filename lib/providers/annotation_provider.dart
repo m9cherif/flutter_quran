@@ -55,6 +55,68 @@ class AnnotationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearAll() {
+    _image = null;
+    _imageFile = null;
+    _hLines.clear();
+    _vLines.clear();
+    _words.clear();
+    _undoStack.clear();
+    _wordCounter = 0;
+    _selectedElement = null;
+    _moveMode = false;
+    _currentPageNumber = '';
+    previewRect = null;
+    notifyListeners();
+  }
+
+  Future<void> loadImageFromBytes(Uint8List bytes, String pageNumber) async {
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    _image = frame.image;
+    _imageFile = null;
+    _currentPageNumber = pageNumber;
+    _hLines.clear();
+    _vLines.clear();
+    _words.clear();
+    _undoStack.clear();
+    _wordCounter = 0;
+    _selectedElement = null;
+    _moveMode = false;
+    _borderWidth = 2;
+    _showWords = true;
+    _showHLines = false;
+    _showVLines = false;
+    previewRect = null;
+    notifyListeners();
+  }
+
+  Future<void> loadImageFromPath(String imagePath, String pageNumber) async {
+    final file = File(imagePath);
+    if (!await file.exists()) {
+      throw Exception('Fichier introuvable : $imagePath');
+    }
+    final bytes = await file.readAsBytes();
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    _image = frame.image;
+    _imageFile = file;
+    _currentPageNumber = pageNumber;
+    _hLines.clear();
+    _vLines.clear();
+    _words.clear();
+    _undoStack.clear();
+    _wordCounter = 0;
+    _selectedElement = null;
+    _moveMode = false;
+    _borderWidth = 2;
+    _showWords = true;
+    _showHLines = false;
+    _showVLines = false;
+    previewRect = null;
+    notifyListeners();
+  }
+
   Future<void> loadPageImage(String pageNumber) async {
     final base = _getBaseDirectory();
     final filePath = '$base\\png\\page$pageNumber.png';

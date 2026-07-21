@@ -98,9 +98,9 @@ class ExcelService {
     required void Function(double x1, double y1, double x2, double y2) onWord,
     required void Function(double y) onHLine,
     required void Function(double x, double top, double bottom) onVLine,
+    String? customPath,
   }) async {
-    final base = getBaseDirectory();
-    final filePath = '$base\\annotation\\a$pageNumber.xlsx';
+    final filePath = customPath ?? '${getBaseDirectory()}\\annotation\\a$pageNumber.xlsx';
     final file = File(filePath);
     if (!await file.exists()) return;
 

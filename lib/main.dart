@@ -1,14 +1,20 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/annotation_screen.dart';
+import 'mobile/main_mobile.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
-  runApp(const QuranAnnotationApp());
+  if (defaultTargetPlatform == TargetPlatform.windows) {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    runApp(const QuranAnnotationApp());
+  } else {
+    runApp(const QuranPreviewApp());
+  }
 }
 
 class QuranAnnotationApp extends StatelessWidget {

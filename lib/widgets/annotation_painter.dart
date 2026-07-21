@@ -13,6 +13,7 @@ class AnnotationPainter extends CustomPainter {
   final bool showVLines;
   final Annotation? selectedElement;
   final Rect? previewRect;
+  final double displayScale;
 
   AnnotationPainter({
     this.image,
@@ -25,20 +26,28 @@ class AnnotationPainter extends CustomPainter {
     this.showVLines = false,
     this.selectedElement,
     this.previewRect,
+    this.displayScale = 1.0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = Colors.white,
+    );
+
     if (image != null) {
       paintImage(canvas, size);
     }
+
+    final s = displayScale;
 
     if (showHLines) {
       for (var h in hLines) {
         final isSelected = selectedElement == h;
         canvas.drawLine(
-          Offset(0, h.y),
-          Offset(size.width, h.y),
+          Offset(0, h.y * s),
+          Offset(size.width, h.y * s),
           Paint()
             ..color = isSelected ? Colors.yellow : Colors.red
             ..strokeWidth = isSelected ? 3.0 : 2.0
@@ -51,8 +60,8 @@ class AnnotationPainter extends CustomPainter {
       for (var v in vLines) {
         final isSelected = selectedElement == v;
         canvas.drawLine(
-          Offset(v.x, v.top),
-          Offset(v.x, v.bottom),
+          Offset(v.x * s, v.top * s),
+          Offset(v.x * s, v.bottom * s),
           Paint()
             ..color = isSelected ? Colors.yellow : Colors.green
             ..strokeWidth = isSelected ? 3.0 : 2.0
@@ -61,50 +70,57 @@ class AnnotationPainter extends CustomPainter {
       }
     }
 
-    if (showWords) {
-      for (var w in words) {
-        final isSelected = selectedElement == w;
-        final rect = Rect.fromLTRB(w.x1, w.y1, w.x2, w.y2);
+    for (var w in words) {
+      final isSelected = selectedElement == w;
+      if (!showWords && !isSelected) continue;
+      final rect = Rect.fromLTRB(w.x1 * s, w.y1 * s, w.x2 * s, w.y2 * s);
 
-        if (w.hidden) {
+      if (w.hidden) {
+        canvas.drawRect(
+          rect,
+          Paint()
+            ..color = Colors.white
+            ..style = PaintingStyle.fill,
+        );
+      }
+
+      if (borderWidth > 0) {
+        if (isSelected) {
           canvas.drawRect(
             rect,
             Paint()
-              ..color = Colors.white
-              ..style = PaintingStyle.fill,
+              ..color = Colors.yellow
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 3.0,
           );
-        }
-
-        if (borderWidth == 0) {
-          if (isSelected) {
-            canvas.drawRect(
-              rect,
-              Paint()
-                ..color = Colors.yellow
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = 3.0,
-            );
-          }
         } else {
-          final paint = Paint()
-            ..color = isSelected ? Colors.yellow : Colors.blue
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = isSelected ? 3.0 : borderWidth.toDouble();
-          canvas.drawRect(rect, paint);
-        }
-
-        if (isSelected && !w.hidden) {
           canvas.drawRect(
             rect,
             Paint()
-              ..color = Colors.yellow.withAlpha(50)
-              ..style = PaintingStyle.fill,
+              ..color = Colors.blue
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = borderWidth.toDouble(),
           );
         }
+      }
+
+      if (isSelected && !w.hidden) {
+        canvas.drawRect(
+          rect,
+          Paint()
+            ..color = Colors.yellow.withAlpha(50)
+            ..style = PaintingStyle.fill,
+        );
       }
     }
 
     if (previewRect != null) {
+      final r = Rect.fromLTRB(
+        previewRect!.left * s,
+        previewRect!.top * s,
+        previewRect!.right * s,
+        previewRect!.bottom * s,
+      );
       final paint = Paint()
         ..color = const Color(0x780096FF)
         ..style = PaintingStyle.stroke
@@ -112,8 +128,8 @@ class AnnotationPainter extends CustomPainter {
       final fillPaint = Paint()
         ..color = const Color(0x280096FF)
         ..style = PaintingStyle.fill;
-      canvas.drawRect(previewRect!, fillPaint);
-      canvas.drawRect(previewRect!, paint);
+      canvas.drawRect(r, fillPaint);
+      canvas.drawRect(r, paint);
     }
   }
 

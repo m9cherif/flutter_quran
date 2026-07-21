@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -409,7 +410,7 @@ class _AnnotationScreenState extends State<AnnotationScreen> {
         if (audioManager.recording) {
           audioManager.stopRecording();
         } else {
-          audioManager.startRecording();
+          unawaited(audioManager.startRecording());
         }
         return KeyEventResult.handled;
       default:

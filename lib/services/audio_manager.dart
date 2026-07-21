@@ -5,22 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../providers/annotation_provider.dart';
 
-class TimelineEvent {
-  final int timeMs;
-  final int wordId;
-  final String action;
-
-  TimelineEvent({required this.timeMs, required this.wordId, required this.action});
-
-  Map<String, dynamic> toJson() => {'time': timeMs, 'word_id': wordId, 'action': action};
-
-  factory TimelineEvent.fromJson(Map<String, dynamic> json) => TimelineEvent(
-    timeMs: json['time'] as int,
-    wordId: json['word_id'] as int,
-    action: json['action'] as String,
-  );
-}
-
 class AudioManager {
   final AnnotationProvider provider;
   final AudioPlayer _player = AudioPlayer();
@@ -29,15 +13,16 @@ class AudioManager {
   bool audioLoaded = false;
   bool recording = false;
   bool _sliderSeeking = false;
+  String currentSurahNumber = '';
 
   int recordingStartTime = 0;
   int recordingStartAudioPos = 0;
   int recordingDuration = 0;
 
-  final List<TimelineEvent> timeline = [];
+  final List<Map<String, dynamic>> timeline = [];
   String timelineName = '';
 
-  List<TimelineEvent> playbackEvents = [];
+  List<Map<String, dynamic>> playbackEvents = [];
   int playbackIndex = 0;
   int playbackStartTime = 0;
   bool playbackPaused = false;
@@ -99,6 +84,49 @@ class AudioManager {
     return '$pos / $dur';
   }
 
+  Future<void> loadAudioBySurah(String surahNumber) async {
+    await stopAudio();
+    stopPlayback();
+    recording = false;
+    final padded = surahNumber.padLeft(3, '0');
+    final path = 'G:\\trabelsi\\$padded.mp3';
+    final file = File(path);
+    if (!await file.exists()) {
+      statusNotifier.value = 'لا يوجد صوت للسورة $surahNumber';
+      currentAudioFile = null;
+      audioLoaded = false;
+      return;
+    }
+    currentSurahNumber = surahNumber;
+    currentAudioFile = path;
+    audioLoaded = false;
+    statusNotifier.value = 'جاري التحميل...';
+    try {
+      await _player.setSource(DeviceFileSource(path));
+      audioLoaded = true;
+      statusNotifier.value = 'تم تحميل صوت السورة $surahNumber';
+    } catch (e) {
+      statusNotifier.value = 'خطأ: $e';
+    }
+  }
+
+  Future<void> loadAudioBySurahFromUrl(String url, String surahNumber) async {
+    await stopAudio();
+    stopPlayback();
+    recording = false;
+    currentSurahNumber = surahNumber;
+    currentAudioFile = url;
+    audioLoaded = false;
+    statusNotifier.value = 'جاري التحميل...';
+    try {
+      await _player.setSource(UrlSource(url));
+      audioLoaded = true;
+      statusNotifier.value = 'تم تحميل صوت السورة $surahNumber';
+    } catch (e) {
+      statusNotifier.value = 'خطأ: $e';
+    }
+  }
+
   Future<void> loadAudioFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -130,7 +158,11 @@ class AudioManager {
       statusNotifier.value = 'متوقف مؤقتاً';
     } else {
       if (!audioLoaded && currentAudioFile != null) {
-        await _player.setSource(DeviceFileSource(currentAudioFile!));
+        if (currentAudioFile!.startsWith('http://') || currentAudioFile!.startsWith('https://')) {
+          await _player.setSource(UrlSource(currentAudioFile!));
+        } else {
+          await _player.setSource(DeviceFileSource(currentAudioFile!));
+        }
         audioLoaded = true;
       }
       await _player.resume();
@@ -160,7 +192,7 @@ class AudioManager {
     int idx = 0;
     for (var i = 0; i < playbackEvents.length; i++) {
       final e = playbackEvents[i];
-      if (e.timeMs <= positionMs) {
+      if ((e['time'] as int) <= positionMs) {
         idx = i;
       } else {
         break;
@@ -170,7 +202,7 @@ class AudioManager {
     playbackIndex = idx + 1 < playbackEvents.length ? idx + 1 : playbackEvents.length;
   }
 
-  void startRecording() {
+  Future<void> startRecording() async {
     if (recording) return;
 
     if (currentAudioFile == null) {
@@ -179,7 +211,12 @@ class AudioManager {
     }
 
     if (!audioLoaded && currentAudioFile != null) {
-      _player.setSource(DeviceFileSource(currentAudioFile!));
+      if (currentAudioFile!.startsWith('http://') || currentAudioFile!.startsWith('https://')) {
+        await _player.setSource(UrlSource(currentAudioFile!));
+      } else {
+        await _player.setSource(DeviceFileSource(currentAudioFile!));
+      }
+      audioLoaded = true;
     }
 
     timeline.clear();
@@ -189,6 +226,8 @@ class AudioManager {
     timelineName = 'page${provider.currentPageNumber}';
     isRecordingNotifier.value = true;
     statusNotifier.value = 'جاري التسجيل...';
+    await _player.resume();
+    isPlayingNotifier.value = true;
   }
 
   void startRecordingNoAudio() {
@@ -215,7 +254,7 @@ class AudioManager {
     if (!recording) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     final elapsed = now - recordingStartTime;
-    timeline.add(TimelineEvent(timeMs: elapsed, wordId: wordId, action: action));
+    timeline.add({'time': elapsed, 'word_id': wordId, 'action': action});
     timelineEventCount.value = timeline.length;
   }
 
@@ -234,7 +273,7 @@ class AudioManager {
         'audio_file': currentAudioFile,
         'audio_start_pos': recordingStartAudioPos,
         'recording_duration': recordingDuration,
-        'events': timeline.map((e) => e.toJson()).toList(),
+        'events': timeline,
       };
       final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
       await File(result).writeAsString(jsonStr);
@@ -262,7 +301,7 @@ class AudioManager {
         return;
       }
 
-      final events = (data['events'] as List).map((e) => TimelineEvent.fromJson(e as Map<String, dynamic>)).toList();
+      final events = (data['events'] as List).cast<Map<String, dynamic>>();
       timeline.clear();
       timeline.addAll(events);
       timelineName = data['name'] as String? ?? '';
@@ -299,14 +338,18 @@ class AudioManager {
 
     final wordIds = provider.words.map((w) => w.id).toSet();
     for (var e in timeline) {
-      if (!wordIds.contains(e.wordId)) {
-        statusNotifier.value = 'الكلمة ID ${e.wordId} غير موجودة';
+      if (!wordIds.contains(e['word_id'])) {
+        statusNotifier.value = 'الكلمة ID ${e['word_id']} غير موجودة';
         return;
       }
     }
 
     if (currentAudioFile != null && !audioLoaded) {
-      await _player.setSource(DeviceFileSource(currentAudioFile!));
+      if (currentAudioFile!.startsWith('http://') || currentAudioFile!.startsWith('https://')) {
+        await _player.setSource(UrlSource(currentAudioFile!));
+      } else {
+        await _player.setSource(DeviceFileSource(currentAudioFile!));
+      }
       _playPendingStart = true;
     } else if (currentAudioFile != null) {
       await _player.seek(Duration(milliseconds: recordingStartAudioPos));
@@ -315,7 +358,7 @@ class AudioManager {
     }
 
     playbackPaused = false;
-    playbackEvents = List.from(timeline)..sort((a, b) => a.timeMs.compareTo(b.timeMs));
+    playbackEvents = List.from(timeline)..sort((a, b) => (a['time'] as int).compareTo(b['time'] as int));
     playbackIndex = 0;
     statusNotifier.value = 'جاري التشغيل – $timelineName';
 
@@ -332,7 +375,7 @@ class AudioManager {
     final now = DateTime.now().millisecondsSinceEpoch;
     final elapsed = now - playbackStartTime;
     final nextEvent = playbackEvents[playbackIndex];
-    var delay = nextEvent.timeMs - elapsed;
+    var delay = (nextEvent['time'] as int) - elapsed;
     if (delay < 0) delay = 0;
 
     Future.delayed(Duration(milliseconds: delay), _executeNextEvent);
@@ -342,10 +385,10 @@ class AudioManager {
     if (playbackIndex >= playbackEvents.length) return;
 
     final evt = playbackEvents[playbackIndex];
-    final word = provider.words.where((w) => w.id == evt.wordId).firstOrNull;
+    final word = provider.words.where((w) => w.id == evt['word_id']).firstOrNull;
 
     if (word != null) {
-      if (evt.action == 'show') {
+      if (evt['action'] == 'show') {
         provider.selectAnnotation(word);
       }
     }
