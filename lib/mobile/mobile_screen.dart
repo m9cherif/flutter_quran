@@ -338,16 +338,18 @@ class _MobileScreenState extends State<MobileScreen> {
           ),
           if (_settings.showPageNumOnImage && provider.currentPageNumber.isNotEmpty)
             Positioned(
-              top: 8, right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '${provider.currentPageNumber}',
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
+              top: 8, left: 0, right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${provider.currentPageNumber}',
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
                 ),
               ),
             ),
@@ -720,45 +722,50 @@ class _MobileScreenState extends State<MobileScreen> {
             debugPrint('QURAN_DEBUG: showHLines=${_settings.showHLines} showVLines=${_settings.showVLines} borderWidth=${_settings.borderWidth} showWords=${_settings.showWordBoxes} scale=$scale imgW=$imgW imgH=$imgH');
 
             final overlayAlpha = ((1.0 - _settings.brightness) * 255).round();
-            final content = Stack(
-              children: [
-                SizedBox(
-                  width: displayW,
-                  height: displayH,
-                  child: CustomPaint(
-                    painter: AnnotationPainter(
-                      image: provider.image,
-                      hLines: provider.hLines,
-                      vLines: provider.vLines,
-                      words: provider.words,
-                      borderWidth: _settings.boldBorders ? _settings.borderWidth + 2 : _settings.borderWidth,
-                      showWords: _settings.showWordBoxes,
-                      showHLines: _settings.showHLines,
-                      showVLines: _settings.showVLines,
-                      showHiddenWords: _settings.showHiddenWords,
-                      selectedElement: provider.selectedElement,
-                      displayScale: scale,
-                      highlightColor: _settings.highlightPaintColor,
-                      highlightOpacity: _settings.highlightOpacity,
-                    ),
-                  ),
+            final content = SizedBox(
+              width: displayW,
+              height: displayH,
+              child: CustomPaint(
+                painter: AnnotationPainter(
+                  image: provider.image,
+                  hLines: provider.hLines,
+                  vLines: provider.vLines,
+                  words: provider.words,
+                  borderWidth: _settings.boldBorders ? _settings.borderWidth + 2 : _settings.borderWidth,
+                  showWords: _settings.showWordBoxes,
+                  showHLines: _settings.showHLines,
+                  showVLines: _settings.showVLines,
+                  showHiddenWords: _settings.showHiddenWords,
+                  selectedElement: provider.selectedElement,
+                  displayScale: scale,
+                  highlightColor: _settings.highlightPaintColor,
+                  highlightOpacity: _settings.highlightOpacity,
                 ),
-                if (overlayAlpha > 0)
-                  Positioned.fill(
-                    child: ColoredBox(color: Colors.black.withAlpha(overlayAlpha)),
-                  ),
-              ],
+              ),
             );
 
+            Widget imageWidget;
             if (_isLandscape && !_settings.landscapeFit) {
-              return SingleChildScrollView(
+              imageWidget = SingleChildScrollView(
                 controller: _scrollCtrl,
                 scrollDirection: Axis.vertical,
                 child: content,
               );
+            } else {
+              imageWidget = Center(child: content);
             }
 
-            return Center(child: content);
+            if (overlayAlpha > 0) {
+              return Stack(
+                children: [
+                  imageWidget,
+                  Positioned.fill(
+                    child: ColoredBox(color: Colors.black.withAlpha(overlayAlpha)),
+                  ),
+                ],
+              );
+            }
+            return imageWidget;
           },
         ),
       ),
