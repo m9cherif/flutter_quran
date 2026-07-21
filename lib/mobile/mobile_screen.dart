@@ -186,7 +186,7 @@ class _MobileScreenState extends State<MobileScreen> {
   void _applySettings() {
     if (_settings.keepAwake) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      SystemChrome.setSystemUIOverlayStyle(const SystemUIOverlayStyle(
+      SystemChrome.setSystemUIOverlayStyle(SystemUIOverlayStyle(
         statusBarColor: Colors.transparent,
         systemNavigationBarColor: Colors.transparent,
       ));
