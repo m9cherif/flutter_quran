@@ -14,6 +14,9 @@ class AnnotationPainter extends CustomPainter {
   final Annotation? selectedElement;
   final Rect? previewRect;
   final double displayScale;
+  final Color highlightColor;
+  final double highlightOpacity;
+  final bool showHiddenWords;
 
   AnnotationPainter({
     this.image,
@@ -27,6 +30,9 @@ class AnnotationPainter extends CustomPainter {
     this.selectedElement,
     this.previewRect,
     this.displayScale = 1.0,
+    this.highlightColor = Colors.yellow,
+    this.highlightOpacity = 0.2,
+    this.showHiddenWords = false,
   });
 
   @override
@@ -75,7 +81,7 @@ class AnnotationPainter extends CustomPainter {
       if (!showWords && !isSelected) continue;
       final rect = Rect.fromLTRB(w.x1 * s, w.y1 * s, w.x2 * s, w.y2 * s);
 
-      if (w.hidden) {
+      if (w.hidden && !showHiddenWords) {
         canvas.drawRect(
           rect,
           Paint()
@@ -108,7 +114,7 @@ class AnnotationPainter extends CustomPainter {
         canvas.drawRect(
           rect,
           Paint()
-            ..color = Colors.yellow.withAlpha(50)
+            ..color = highlightColor.withAlpha((highlightOpacity * 255).round())
             ..style = PaintingStyle.fill,
         );
       }
@@ -163,7 +169,10 @@ class AnnotationPainter extends CustomPainter {
         showHLines != oldDelegate.showHLines ||
         showVLines != oldDelegate.showVLines ||
         selectedElement != oldDelegate.selectedElement ||
-        previewRect != oldDelegate.previewRect;
+        previewRect != oldDelegate.previewRect ||
+        highlightColor != oldDelegate.highlightColor ||
+        highlightOpacity != oldDelegate.highlightOpacity ||
+        showHiddenWords != oldDelegate.showHiddenWords;
   }
 
   Size get imageSize {

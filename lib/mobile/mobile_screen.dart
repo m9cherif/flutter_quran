@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -120,6 +121,7 @@ class _MobileScreenState extends State<MobileScreen> {
   double _scrollOffset = 0;
 
   bool _showOverlay = false;
+  Timer? _overlayTimer;
   bool _isLandscape = false;
 
   @override
@@ -138,6 +140,7 @@ class _MobileScreenState extends State<MobileScreen> {
 
   @override
   void dispose() {
+    _overlayTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     provider.removeListener(_onProviderChange);
     audioManager.cleanup();
@@ -181,6 +184,15 @@ class _MobileScreenState extends State<MobileScreen> {
   }
 
   void _applySettings() {
+    if (_settings.keepAwake) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setSystemUIOverlayStyle(const SystemUIOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+      ));
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     setState(() {});
     _saveSettings();
   }
@@ -236,6 +248,7 @@ class _MobileScreenState extends State<MobileScreen> {
           provider.addWordAtRect(x1, y1, x2, y2);
         }
       }
+
     } catch (e) {
       setState(() => _errorMessage = e.toString());
     } finally {
@@ -312,7 +325,7 @@ class _MobileScreenState extends State<MobileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _settings.darkBg ? Colors.black : Colors.white,
       body: Stack(
         children: [
           Positioned.fill(
@@ -321,6 +334,21 @@ class _MobileScreenState extends State<MobileScreen> {
               child: _buildImageViewer(),
             ),
           ),
+          if (_settings.showPageNumOnImage && provider.currentPageNumber.isNotEmpty)
+            Positioned(
+              top: 8, right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${provider.currentPageNumber}',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+            ),
           if (_showOverlay) _buildOverlay(),
           if (provider.image == null || _showOverlay) _buildPageInput(),
           if (_isLoading)
@@ -642,7 +670,19 @@ class _MobileScreenState extends State<MobileScreen> {
         _dragStartTime = null;
       },
       child: GestureDetector(
-        onTapUp: (_) => setState(() => _showOverlay = !_showOverlay),
+        onTapUp: (_) {
+          setState(() {
+            _showOverlay = !_showOverlay;
+            if (_showOverlay && _settings.overlayTimeoutSec > 0) {
+              _overlayTimer?.cancel();
+              _overlayTimer = Timer(Duration(seconds: _settings.overlayTimeoutSec), () {
+                if (mounted) setState(() => _showOverlay = false);
+              });
+            } else {
+              _overlayTimer?.cancel();
+            }
+          });
+        },
         onLongPressStart: (details) => _onLongPress(details.localPosition),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -688,8 +728,11 @@ class _MobileScreenState extends State<MobileScreen> {
                   showWords: _settings.showWordBoxes,
                   showHLines: _settings.showHLines,
                   showVLines: _settings.showVLines,
+                  showHiddenWords: _settings.showHiddenWords,
                   selectedElement: provider.selectedElement,
                   displayScale: scale,
+                  highlightColor: _settings.highlightPaintColor,
+                  highlightOpacity: _settings.highlightOpacity,
                 ),
               ),
             );
