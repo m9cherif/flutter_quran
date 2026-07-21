@@ -32,6 +32,7 @@ class AppSettings {
   int maxScale = 300;
   bool showPageNumOnImage = false;
   bool autoLoadAudio = false;
+  bool hideSystemUI = true;
 
   Map<String, dynamic> toJson() => {
     'showWordBoxes': showWordBoxes,
@@ -55,6 +56,7 @@ class AppSettings {
     'maxScale': maxScale,
     'showPageNumOnImage': showPageNumOnImage,
     'autoLoadAudio': autoLoadAudio,
+    'hideSystemUI': hideSystemUI,
   };
 
   AppSettings.fromJson(Map<String, dynamic> json) {
@@ -79,6 +81,7 @@ class AppSettings {
     showPageNumOnImage = json['showPageNumOnImage'] as bool? ?? false;
     brightness = (json['brightness'] as num?)?.toDouble() ?? 1.0;
     autoLoadAudio = json['autoLoadAudio'] as bool? ?? false;
+    hideSystemUI = json['hideSystemUI'] as bool? ?? true;
   }
 
   AppSettings();
@@ -129,9 +132,8 @@ class _MobileScreenState extends State<MobileScreen> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _settings = AppSettings();
-    _loadSettings();
+    _loadSettings().then((_) => _applySettings());
     audioManager = AudioManager(provider);
     provider.addListener(_onProviderChange);
     _checkConnection();
@@ -186,7 +188,7 @@ class _MobileScreenState extends State<MobileScreen> {
   }
 
   void _applySettings() {
-    if (_settings.keepAwake) {
+    if (_settings.hideSystemUI) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -512,6 +514,7 @@ class _MobileScreenState extends State<MobileScreen> {
                 _switchTile(ctx, setSheetState, 'اهتزاز عند الضغط', Icons.vibration, _settings.vibrateOnWord, (v) { _settings.vibrateOnWord = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'خلفية داكنة', Icons.dark_mode, _settings.darkBg, (v) { _settings.darkBg = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'مناسب للعرض في الأفقي', Icons.aspect_ratio, _settings.landscapeFit, (v) { _settings.landscapeFit = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'إخفاء شريط الإشعارات', Icons.notifications_off, _settings.hideSystemUI, (v) { _settings.hideSystemUI = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'التقاط إلى الشبكة', Icons.grid_view, _settings.snapToGrid, (v) { _settings.snapToGrid = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'رقم الصفحة فوق الصورة', Icons.numbers, _settings.showPageNumOnImage, (v) { _settings.showPageNumOnImage = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'تشغيل الصوت تلقائياً', Icons.music_note, _settings.autoLoadAudio, (v) { _settings.autoLoadAudio = v; _applySettings(); }),
