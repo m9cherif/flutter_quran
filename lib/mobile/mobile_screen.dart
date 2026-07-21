@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -27,6 +26,7 @@ class AppSettings {
   bool showHiddenWords = false;
   double highlightOpacity = 0.2;
   String highlightColor = 'yellow';
+  double brightness = 1.0;
   String lastPage = '';
   int minScale = 50;
   int maxScale = 300;
@@ -49,6 +49,7 @@ class AppSettings {
     'showHiddenWords': showHiddenWords,
     'highlightOpacity': highlightOpacity,
     'highlightColor': highlightColor,
+    'brightness': brightness,
     'lastPage': lastPage,
     'minScale': minScale,
     'maxScale': maxScale,
@@ -76,6 +77,7 @@ class AppSettings {
     minScale = json['minScale'] as int? ?? 50;
     maxScale = json['maxScale'] as int? ?? 300;
     showPageNumOnImage = json['showPageNumOnImage'] as bool? ?? false;
+    brightness = (json['brightness'] as num?)?.toDouble() ?? 1.0;
     autoLoadAudio = json['autoLoadAudio'] as bool? ?? false;
   }
 
@@ -517,6 +519,7 @@ class _MobileScreenState extends State<MobileScreen> {
                 _sliderTile(ctx, setSheetState, 'حساسية السحب', '${_settings.swipeThreshold.toInt()}px', _settings.swipeThreshold, 20, 150, (v) { _settings.swipeThreshold = v; _applySettings(); }),
                 _sliderTile(ctx, setSheetState, 'مدة الإخفاء', '${_settings.overlayTimeoutSec}ث', _settings.overlayTimeoutSec.toDouble(), 1, 10, (v) { _settings.overlayTimeoutSec = v.round(); _applySettings(); }),
                 _sliderTile(ctx, setSheetState, 'شفافية التحديد', '${(_settings.highlightOpacity * 100).round()}%', _settings.highlightOpacity * 100, 5, 50, (v) { _settings.highlightOpacity = v / 100; _applySettings(); }),
+                _sliderTile(ctx, setSheetState, 'سطوع الصفحة', '${(_settings.brightness * 100).round()}%', _settings.brightness * 100, 30, 100, (v) { _settings.brightness = v / 100; _applySettings(); }),
                 const Divider(color: Colors.white12),
                 _colorPickerTile(ctx, setSheetState, 'لون التحديد', _settings.highlightColor, (v) { _settings.highlightColor = v; _applySettings(); }),
                 const Divider(color: Colors.white12),
@@ -670,7 +673,11 @@ class _MobileScreenState extends State<MobileScreen> {
         _dragStartTime = null;
       },
       child: GestureDetector(
-        onTapUp: (_) {
+        onTapUp: (details) {
+          if (provider.image != null) {
+            final imgPos = _screenToImagePos(details.localPosition);
+            provider.trySelectElement(imgPos);
+          }
           setState(() {
             _showOverlay = !_showOverlay;
             if (_showOverlay && _settings.overlayTimeoutSec > 0) {
@@ -715,26 +722,35 @@ class _MobileScreenState extends State<MobileScreen> {
 
             debugPrint('QURAN_DEBUG: showHLines=${_settings.showHLines} showVLines=${_settings.showVLines} borderWidth=${_settings.borderWidth} showWords=${_settings.showWordBoxes} scale=$scale imgW=$imgW imgH=$imgH');
 
-            final content = SizedBox(
-              width: displayW,
-              height: displayH,
-              child: CustomPaint(
-                painter: AnnotationPainter(
-                  image: provider.image,
-                  hLines: provider.hLines,
-                  vLines: provider.vLines,
-                  words: provider.words,
-                  borderWidth: _settings.boldBorders ? _settings.borderWidth + 2 : _settings.borderWidth,
-                  showWords: _settings.showWordBoxes,
-                  showHLines: _settings.showHLines,
-                  showVLines: _settings.showVLines,
-                  showHiddenWords: _settings.showHiddenWords,
-                  selectedElement: provider.selectedElement,
-                  displayScale: scale,
-                  highlightColor: _settings.highlightPaintColor,
-                  highlightOpacity: _settings.highlightOpacity,
+            final overlayAlpha = ((1.0 - _settings.brightness) * 255).round();
+            final content = Stack(
+              children: [
+                SizedBox(
+                  width: displayW,
+                  height: displayH,
+                  child: CustomPaint(
+                    painter: AnnotationPainter(
+                      image: provider.image,
+                      hLines: provider.hLines,
+                      vLines: provider.vLines,
+                      words: provider.words,
+                      borderWidth: _settings.boldBorders ? _settings.borderWidth + 2 : _settings.borderWidth,
+                      showWords: _settings.showWordBoxes,
+                      showHLines: _settings.showHLines,
+                      showVLines: _settings.showVLines,
+                      showHiddenWords: _settings.showHiddenWords,
+                      selectedElement: provider.selectedElement,
+                      displayScale: scale,
+                      highlightColor: _settings.highlightPaintColor,
+                      highlightOpacity: _settings.highlightOpacity,
+                    ),
+                  ),
                 ),
-              ),
+                if (overlayAlpha > 0)
+                  Positioned.fill(
+                    child: ColoredBox(color: Colors.black.withAlpha(overlayAlpha)),
+                  ),
+              ],
             );
 
             if (_isLandscape && !_settings.landscapeFit) {
