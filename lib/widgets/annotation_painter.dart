@@ -95,7 +95,7 @@ class AnnotationPainter extends CustomPainter {
           canvas.drawRect(
             rect,
             Paint()
-              ..color = Colors.yellow
+              ..color = highlightColor
               ..style = PaintingStyle.stroke
               ..strokeWidth = 3.0,
           );
