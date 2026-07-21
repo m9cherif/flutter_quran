@@ -33,6 +33,31 @@ class AppSettings {
   bool showPageNumOnImage = false;
   bool autoLoadAudio = false;
   bool hideSystemUI = true;
+  int pageNumSize = 16;
+  bool pageNumBg = true;
+  String pageNumColor = 'white';
+  bool invertColors = false;
+  int autoScrollInterval = 0;
+  bool showZoomButtons = false;
+  bool smoothTransition = true;
+  bool doubleTapZoom = false;
+  bool memoryMode = false;
+  bool showWordCount = false;
+  int imageCornerRadius = 0;
+  bool showPageBorder = false;
+  bool lockOrientation = false;
+
+  Color get pageNumPaintColor {
+    switch (pageNumColor) {
+      case 'red': return Colors.red;
+      case 'yellow': return Colors.yellow;
+      case 'black': return Colors.black;
+      case 'gold': return Color(0xFFD4A843);
+      default: return Colors.white;
+    }
+  }
+
+  bool get effectiveLockOrientation => lockOrientation;
 
   Map<String, dynamic> toJson() => {
     'showWordBoxes': showWordBoxes,
@@ -57,6 +82,19 @@ class AppSettings {
     'showPageNumOnImage': showPageNumOnImage,
     'autoLoadAudio': autoLoadAudio,
     'hideSystemUI': hideSystemUI,
+    'pageNumSize': pageNumSize,
+    'pageNumBg': pageNumBg,
+    'pageNumColor': pageNumColor,
+    'invertColors': invertColors,
+    'autoScrollInterval': autoScrollInterval,
+    'showZoomButtons': showZoomButtons,
+    'smoothTransition': smoothTransition,
+    'doubleTapZoom': doubleTapZoom,
+    'memoryMode': memoryMode,
+    'showWordCount': showWordCount,
+    'imageCornerRadius': imageCornerRadius,
+    'showPageBorder': showPageBorder,
+    'lockOrientation': lockOrientation,
   };
 
   AppSettings.fromJson(Map<String, dynamic> json) {
@@ -82,6 +120,19 @@ class AppSettings {
     brightness = (json['brightness'] as num?)?.toDouble() ?? 1.0;
     autoLoadAudio = json['autoLoadAudio'] as bool? ?? false;
     hideSystemUI = json['hideSystemUI'] as bool? ?? true;
+    pageNumSize = json['pageNumSize'] as int? ?? 16;
+    pageNumBg = json['pageNumBg'] as bool? ?? true;
+    pageNumColor = json['pageNumColor'] as String? ?? 'white';
+    invertColors = json['invertColors'] as bool? ?? false;
+    autoScrollInterval = json['autoScrollInterval'] as int? ?? 0;
+    showZoomButtons = json['showZoomButtons'] as bool? ?? false;
+    smoothTransition = json['smoothTransition'] as bool? ?? true;
+    doubleTapZoom = json['doubleTapZoom'] as bool? ?? false;
+    memoryMode = json['memoryMode'] as bool? ?? false;
+    showWordCount = json['showWordCount'] as bool? ?? false;
+    imageCornerRadius = json['imageCornerRadius'] as int? ?? 0;
+    showPageBorder = json['showPageBorder'] as bool? ?? false;
+    lockOrientation = json['lockOrientation'] as bool? ?? false;
   }
 
   AppSettings();
@@ -127,7 +178,9 @@ class _MobileScreenState extends State<MobileScreen> {
 
   bool _showOverlay = false;
   Timer? _overlayTimer;
+  Timer? _autoScrollTimer;
   bool _isLandscape = false;
+  double _zoomMultiplier = 1.0;
 
   @override
   void initState() {
@@ -145,6 +198,7 @@ class _MobileScreenState extends State<MobileScreen> {
   @override
   void dispose() {
     _overlayTimer?.cancel();
+    _autoScrollTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     provider.removeListener(_onProviderChange);
     audioManager.cleanup();
@@ -197,8 +251,31 @@ class _MobileScreenState extends State<MobileScreen> {
     } else {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
+    _updateAutoScroll();
+    if (_settings.lockOrientation) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+    } else {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
     setState(() {});
     _saveSettings();
+  }
+
+  void _updateAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
+    if (_settings.autoScrollInterval > 0 && provider.image != null) {
+      _autoScrollTimer = Timer.periodic(Duration(seconds: _settings.autoScrollInterval), (_) {
+        if (mounted) _navigatePage(1);
+      });
+    }
   }
 
   Future<void> loadPage(String pageNumber) async {
@@ -253,6 +330,8 @@ class _MobileScreenState extends State<MobileScreen> {
         }
       }
 
+      _updateAutoScroll();
+
     } catch (e) {
       setState(() => _errorMessage = e.toString());
     } finally {
@@ -266,8 +345,8 @@ class _MobileScreenState extends State<MobileScreen> {
     final imgH = provider.image!.height.toDouble();
     final scaleX = viewW / imgW;
     final scaleY = viewH / imgH;
-    if (_isLandscape && !_settings.landscapeFit) return scaleX;
-    return scaleX < scaleY ? scaleX : scaleY;
+    if (_isLandscape && !_settings.landscapeFit) return scaleX * _zoomMultiplier;
+    return (scaleX < scaleY ? scaleX : scaleY) * _zoomMultiplier;
   }
 
   Offset _screenToImagePos(Offset screenPos) {
@@ -340,18 +419,38 @@ class _MobileScreenState extends State<MobileScreen> {
           ),
           if (_settings.showPageNumOnImage && provider.currentPageNumber.isNotEmpty)
             Positioned(
-              top: 8, left: 0, right: 0,
+              bottom: 8, left: 0, right: 0,
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+                  decoration: _settings.pageNumBg
+                      ? BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        )
+                      : null,
                   child: Text(
                     '${provider.currentPageNumber}',
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: TextStyle(
+                      color: _settings.pageNumPaintColor,
+                      fontSize: _settings.pageNumSize.toDouble(),
+                    ),
                   ),
+                ),
+              ),
+            ),
+          if (_settings.showWordCount && provider.words.isNotEmpty)
+            Positioned(
+              top: 8, left: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${provider.words.length} كلمة',
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
                 ),
               ),
             ),
@@ -456,6 +555,22 @@ class _MobileScreenState extends State<MobileScreen> {
               Text('صفحة $currentPage',
                   style: const TextStyle(color: Color(0xFFD4A843), fontSize: 13, fontWeight: FontWeight.bold)),
             const SizedBox(width: 4),
+            if (_settings.showZoomButtons) ...[
+              IconButton(
+                icon: const Icon(Icons.zoom_out, color: Colors.white54, size: 20),
+                onPressed: () => setState(() => _zoomMultiplier = (_zoomMultiplier - 0.25).clamp(0.5, 3.0)),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+              Text('${(_zoomMultiplier * 100).round()}%',
+                  style: const TextStyle(color: Color(0xFFD4A843), fontSize: 11)),
+              IconButton(
+                icon: const Icon(Icons.zoom_in, color: Colors.white54, size: 20),
+                onPressed: () => setState(() => _zoomMultiplier = (_zoomMultiplier + 0.25).clamp(0.5, 3.0)),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+            ],
             IconButton(
               icon: const Icon(Icons.settings, color: Colors.white54, size: 20),
               onPressed: _showSettings,
@@ -511,12 +626,21 @@ class _MobileScreenState extends State<MobileScreen> {
                 _switchTile(ctx, setSheetState, 'إظهار الخطوط العمودية', Icons.vertical_align_center, _settings.showVLines, (v) { _settings.showVLines = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'خطوط عريضة', Icons.line_weight, _settings.boldBorders, (v) { _settings.boldBorders = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'إظهار الكلمات المخفية', Icons.visibility_off, _settings.showHiddenWords, (v) { _settings.showHiddenWords = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'وضع الحفظ (إخفاء الكلمات)', Icons.school, _settings.memoryMode, (v) { _settings.memoryMode = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'اهتزاز عند الضغط', Icons.vibration, _settings.vibrateOnWord, (v) { _settings.vibrateOnWord = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'خلفية داكنة', Icons.dark_mode, _settings.darkBg, (v) { _settings.darkBg = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'مناسب للعرض في الأفقي', Icons.aspect_ratio, _settings.landscapeFit, (v) { _settings.landscapeFit = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'إخفاء شريط الإشعارات', Icons.notifications_off, _settings.hideSystemUI, (v) { _settings.hideSystemUI = v; _applySettings(); }),
-                _switchTile(ctx, setSheetState, 'التقاط إلى الشبكة', Icons.grid_view, _settings.snapToGrid, (v) { _settings.snapToGrid = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'قفل الشاشة عمودياً', Icons.screen_lock_portrait, _settings.lockOrientation, (v) { _settings.lockOrientation = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'رقم الصفحة فوق الصورة', Icons.numbers, _settings.showPageNumOnImage, (v) { _settings.showPageNumOnImage = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'خلفية رقم الصفحة', Icons.sticky_note_2, _settings.pageNumBg, (v) { _settings.pageNumBg = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'عرض عدد الكلمات', Icons.format_list_numbered, _settings.showWordCount, (v) { _settings.showWordCount = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'أزرار التكبير', Icons.zoom_in, _settings.showZoomButtons, (v) { _settings.showZoomButtons = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'قلب الألوان', Icons.invert_colors, _settings.invertColors, (v) { _settings.invertColors = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'إطار الصفحة', Icons.border_all, _settings.showPageBorder, (v) { _settings.showPageBorder = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'انتقال سلس بين الصفحات', Icons.animation, _settings.smoothTransition, (v) { _settings.smoothTransition = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'تكبير بالنقر المزدوج', Icons.touch_app, _settings.doubleTapZoom, (v) { _settings.doubleTapZoom = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'التقاط إلى الشبكة', Icons.grid_view, _settings.snapToGrid, (v) { _settings.snapToGrid = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'تشغيل الصوت تلقائياً', Icons.music_note, _settings.autoLoadAudio, (v) { _settings.autoLoadAudio = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'إبقاء الشاشة مضاءة', Icons.lightbulb, _settings.keepAwake, (v) { _settings.keepAwake = v; _applySettings(); }),
                 const Divider(color: Colors.white12),
@@ -525,8 +649,12 @@ class _MobileScreenState extends State<MobileScreen> {
                 _sliderTile(ctx, setSheetState, 'مدة الإخفاء', '${_settings.overlayTimeoutSec}ث', _settings.overlayTimeoutSec.toDouble(), 1, 10, (v) { _settings.overlayTimeoutSec = v.round(); _applySettings(); }),
                 _sliderTile(ctx, setSheetState, 'شفافية التحديد', '${(_settings.highlightOpacity * 100).round()}%', _settings.highlightOpacity * 100, 5, 50, (v) { _settings.highlightOpacity = v / 100; _applySettings(); }),
                 _sliderTile(ctx, setSheetState, 'سطوع الصفحة', '${(_settings.brightness * 100).round()}%', _settings.brightness * 100, 30, 100, (v) { _settings.brightness = v / 100; _applySettings(); }),
+                _sliderTile(ctx, setSheetState, 'حجم رقم الصفحة', '${_settings.pageNumSize}', _settings.pageNumSize.toDouble(), 10, 48, (v) { _settings.pageNumSize = v.round(); _applySettings(); }),
+                _sliderTile(ctx, setSheetState, 'التقليب التلقائي', _settings.autoScrollInterval > 0 ? 'كل ${_settings.autoScrollInterval}ث' : 'معطل', _settings.autoScrollInterval.toDouble(), 0, 30, (v) { _settings.autoScrollInterval = v.round(); _applySettings(); }),
+                _sliderTile(ctx, setSheetState, 'تقويس الزوايا', '${_settings.imageCornerRadius}', _settings.imageCornerRadius.toDouble(), 0, 30, (v) { _settings.imageCornerRadius = v.round(); _applySettings(); }),
                 const Divider(color: Colors.white12),
                 _colorPickerTile(ctx, setSheetState, 'لون التحديد', _settings.highlightColor, (v) { _settings.highlightColor = v; _applySettings(); }),
+                _colorPickerTile(ctx, setSheetState, 'لون رقم الصفحة', _settings.pageNumColor, (v) { _settings.pageNumColor = v; _applySettings(); }),
                 const Divider(color: Colors.white12),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -677,8 +805,13 @@ class _MobileScreenState extends State<MobileScreen> {
         _dragStartX = null;
         _dragStartTime = null;
       },
-      child: GestureDetector(
-        onTapUp: (details) {
+        child: GestureDetector(
+          onDoubleTap: _settings.doubleTapZoom ? () {
+            setState(() {
+              _zoomMultiplier = _zoomMultiplier == 1.0 ? 2.0 : 1.0;
+            });
+          } : null,
+          onTapUp: (details) {
           provider.selectAnnotation(null);
           setState(() {
             _showOverlay = !_showOverlay;
@@ -725,7 +858,8 @@ class _MobileScreenState extends State<MobileScreen> {
             debugPrint('QURAN_DEBUG: showHLines=${_settings.showHLines} showVLines=${_settings.showVLines} borderWidth=${_settings.borderWidth} showWords=${_settings.showWordBoxes} scale=$scale imgW=$imgW imgH=$imgH');
 
             final overlayAlpha = ((1.0 - _settings.brightness) * 255).round();
-            final content = SizedBox(
+
+            Widget imageContent = SizedBox(
               width: displayW,
               height: displayH,
               child: CustomPaint(
@@ -735,7 +869,7 @@ class _MobileScreenState extends State<MobileScreen> {
                   vLines: provider.vLines,
                   words: provider.words,
                   borderWidth: _settings.boldBorders ? _settings.borderWidth + 2 : _settings.borderWidth,
-                  showWords: _settings.showWordBoxes,
+                  showWords: _settings.memoryMode ? false : _settings.showWordBoxes,
                   showHLines: _settings.showHLines,
                   showVLines: _settings.showVLines,
                   showHiddenWords: _settings.showHiddenWords,
@@ -745,6 +879,42 @@ class _MobileScreenState extends State<MobileScreen> {
                   highlightOpacity: _settings.highlightOpacity,
                 ),
               ),
+            );
+
+            if (_settings.invertColors) {
+              imageContent = ColorFiltered(
+                colorFilter: const ColorFilter.matrix(<double>[
+                  -1, 0, 0, 0, 255,
+                  0, -1, 0, 0, 255,
+                  0, 0, -1, 0, 255,
+                  0, 0, 0, 1, 0,
+                ]),
+                child: imageContent,
+              );
+            }
+
+            if (_settings.imageCornerRadius > 0) {
+              imageContent = ClipRRect(
+                borderRadius: BorderRadius.circular(_settings.imageCornerRadius.toDouble()),
+                child: imageContent,
+              );
+            }
+
+            if (_settings.showPageBorder) {
+              imageContent = Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFD4A843), width: 2),
+                  borderRadius: _settings.imageCornerRadius > 0
+                      ? BorderRadius.circular(_settings.imageCornerRadius.toDouble())
+                      : null,
+                ),
+                child: imageContent,
+              );
+            }
+
+            final content = KeyedSubtree(
+              key: ValueKey(provider.currentPageNumber),
+              child: imageContent,
             );
 
             Widget imageWidget;
@@ -758,8 +928,9 @@ class _MobileScreenState extends State<MobileScreen> {
               imageWidget = Center(child: content);
             }
 
+            Widget result;
             if (overlayAlpha > 0) {
-              return Stack(
+              result = Stack(
                 children: [
                   imageWidget,
                   Positioned.fill(
@@ -767,8 +938,17 @@ class _MobileScreenState extends State<MobileScreen> {
                   ),
                 ],
               );
+            } else {
+              result = imageWidget;
             }
-            return imageWidget;
+
+            if (_settings.smoothTransition) {
+              result = AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: result,
+              );
+            }
+            return result;
           },
         ),
       ),
