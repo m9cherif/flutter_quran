@@ -196,7 +196,6 @@ class _MobileScreenState extends State<MobileScreen> {
 
   double _lastW = 0;
   double _lastH = 0;
-  double _scrollOffset = 0;
 
   bool _showOverlay = false;
   Timer? _overlayTimer;
@@ -212,9 +211,6 @@ class _MobileScreenState extends State<MobileScreen> {
     audioManager = AudioManager(provider);
     provider.addListener(_onProviderChange);
     _checkConnection();
-    _scrollCtrl.addListener(() {
-      _scrollOffset = _scrollCtrl.offset;
-    });
   }
 
   @override
@@ -322,7 +318,6 @@ class _MobileScreenState extends State<MobileScreen> {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.jumpTo(0);
       }
-      _scrollOffset = 0;
       _saveSettings();
 
       final data = XlsxReader.readXlsxFromBytes(annotBytes);
@@ -368,7 +363,6 @@ class _MobileScreenState extends State<MobileScreen> {
     final imgH = provider.image!.height.toDouble();
     final scaleX = viewW / imgW;
     final scaleY = viewH / imgH;
-    if (_isLandscape && !_settings.landscapeFit) return scaleX;
     return (scaleX < scaleY ? scaleX : scaleY) * _zoomMultiplier;
   }
 
@@ -382,14 +376,6 @@ class _MobileScreenState extends State<MobileScreen> {
     final imgH = provider.image!.height.toDouble();
     final contentW = imgW * scale;
     final contentH = imgH * scale;
-
-    if (_isLandscape && !_settings.landscapeFit) {
-      return Offset(
-        screenPos.dx / scale,
-        (screenPos.dy + _scrollOffset) / scale,
-      );
-    }
-
     final offsetX = (viewW - contentW) / 2;
     final offsetY = (viewH - contentH) / 2;
     return Offset(
@@ -411,7 +397,6 @@ class _MobileScreenState extends State<MobileScreen> {
   }
 
   void _navigatePage(int delta) {
-    if (_isLandscape && !_settings.landscapeFit) return;
     final current = provider.currentPageNumber;
     final p = int.tryParse(current);
     if (p == null) return;
@@ -594,7 +579,7 @@ class _MobileScreenState extends State<MobileScreen> {
           children: [
             IconButton(
               icon: const Icon(Icons.chevron_left, color: Color(0xFFD4A843), size: 28),
-              onPressed: _isLandscape && !_settings.landscapeFit ? null : () => _navigatePage(-1),
+              onPressed: () => _navigatePage(-1),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
@@ -638,7 +623,7 @@ class _MobileScreenState extends State<MobileScreen> {
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right, color: Color(0xFFD4A843), size: 28),
-              onPressed: _isLandscape && !_settings.landscapeFit ? null : () => _navigatePage(1),
+              onPressed: () => _navigatePage(1),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
@@ -1011,16 +996,7 @@ class _MobileScreenState extends State<MobileScreen> {
               child: imageContent,
             );
 
-            Widget imageWidget;
-            if (_isLandscape && !_settings.landscapeFit) {
-              imageWidget = SingleChildScrollView(
-                controller: _scrollCtrl,
-                scrollDirection: Axis.vertical,
-                child: content,
-              );
-            } else {
-              imageWidget = Center(child: content);
-            }
+            Widget imageWidget = Center(child: content);
 
             Widget result = imageWidget;
 
