@@ -46,6 +46,8 @@ class AppSettings {
   int imageCornerRadius = 0;
   bool showPageBorder = false;
   bool lockOrientation = false;
+  bool boldPageNum = false;
+  int pageNumOffset = 0;
 
   Color get pageNumPaintColor {
     switch (pageNumColor) {
@@ -95,6 +97,8 @@ class AppSettings {
     'imageCornerRadius': imageCornerRadius,
     'showPageBorder': showPageBorder,
     'lockOrientation': lockOrientation,
+    'boldPageNum': boldPageNum,
+    'pageNumOffset': pageNumOffset,
   };
 
   AppSettings.fromJson(Map<String, dynamic> json) {
@@ -133,6 +137,8 @@ class AppSettings {
     imageCornerRadius = json['imageCornerRadius'] as int? ?? 0;
     showPageBorder = json['showPageBorder'] as bool? ?? false;
     lockOrientation = json['lockOrientation'] as bool? ?? false;
+    boldPageNum = json['boldPageNum'] as bool? ?? false;
+    pageNumOffset = json['pageNumOffset'] as int? ?? 0;
   }
 
   AppSettings();
@@ -415,7 +421,7 @@ class _MobileScreenState extends State<MobileScreen> {
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: _settings.darkBg ? Colors.black : Colors.white,
                 borderRadius: _settings.imageCornerRadius > 0
                     ? BorderRadius.circular(_settings.imageCornerRadius.toDouble())
                     : null,
@@ -423,13 +429,13 @@ class _MobileScreenState extends State<MobileScreen> {
                     ? Border.all(color: const Color(0xFFD4A843), width: 2)
                     : null,
               ),
-              clipBehavior: _settings.imageCornerRadius > 0 ? Clip.antiAlias : Clip.none,
+              clipBehavior: _settings.imageCornerRadius > 0 && _zoomMultiplier <= 1.0 ? Clip.antiAlias : Clip.none,
               child: _buildImageViewer(),
             ),
           ),
           if (_settings.showPageNumOnImage && provider.currentPageNumber.isNotEmpty)
             Positioned(
-              bottom: 8, left: 0, right: 0,
+              bottom: 8 + _settings.pageNumOffset.toDouble(), left: 0, right: 0,
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -444,6 +450,7 @@ class _MobileScreenState extends State<MobileScreen> {
                     style: TextStyle(
                       color: _settings.pageNumPaintColor,
                       fontSize: _settings.pageNumSize.toDouble(),
+                      fontWeight: _settings.boldPageNum ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -463,6 +470,10 @@ class _MobileScreenState extends State<MobileScreen> {
                   style: const TextStyle(color: Colors.white70, fontSize: 11),
                 ),
               ),
+            ),
+          if (_settings.brightness < 1.0)
+            Positioned.fill(
+              child: ColoredBox(color: Colors.black.withAlpha(((1.0 - _settings.brightness) * 255).round())),
             ),
           if (_showOverlay) _buildOverlay(),
           if (provider.image == null || _showOverlay) _buildPageInput(),
@@ -580,6 +591,13 @@ class _MobileScreenState extends State<MobileScreen> {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
+              if (_zoomMultiplier != 1.0)
+                IconButton(
+                  icon: const Icon(Icons.zoom_out_map, color: Color(0xFFD4A843), size: 18),
+                  onPressed: () => setState(() => _zoomMultiplier = 1.0),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                ),
             ],
             IconButton(
               icon: const Icon(Icons.settings, color: Colors.white54, size: 20),
@@ -644,6 +662,7 @@ class _MobileScreenState extends State<MobileScreen> {
                 _switchTile(ctx, setSheetState, 'قفل الشاشة عمودياً', Icons.screen_lock_portrait, _settings.lockOrientation, (v) { _settings.lockOrientation = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'رقم الصفحة فوق الصورة', Icons.numbers, _settings.showPageNumOnImage, (v) { _settings.showPageNumOnImage = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'خلفية رقم الصفحة', Icons.sticky_note_2, _settings.pageNumBg, (v) { _settings.pageNumBg = v; _applySettings(); }),
+                _switchTile(ctx, setSheetState, 'رقم الصفحة عريض', Icons.format_bold, _settings.boldPageNum, (v) { _settings.boldPageNum = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'عرض عدد الكلمات', Icons.format_list_numbered, _settings.showWordCount, (v) { _settings.showWordCount = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'أزرار التكبير', Icons.zoom_in, _settings.showZoomButtons, (v) { _settings.showZoomButtons = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, 'قلب الألوان', Icons.invert_colors, _settings.invertColors, (v) { _settings.invertColors = v; _applySettings(); }),
@@ -660,6 +679,7 @@ class _MobileScreenState extends State<MobileScreen> {
                 _sliderTile(ctx, setSheetState, 'شفافية التحديد', '${(_settings.highlightOpacity * 100).round()}%', _settings.highlightOpacity * 100, 5, 50, (v) { _settings.highlightOpacity = v / 100; _applySettings(); }),
                 _sliderTile(ctx, setSheetState, 'سطوع الصفحة', '${(_settings.brightness * 100).round()}%', _settings.brightness * 100, 30, 100, (v) { _settings.brightness = v / 100; _applySettings(); }),
                 _sliderTile(ctx, setSheetState, 'حجم رقم الصفحة', '${_settings.pageNumSize}', _settings.pageNumSize.toDouble(), 10, 48, (v) { _settings.pageNumSize = v.round(); _applySettings(); }),
+                _sliderTile(ctx, setSheetState, 'موضع رقم الصفحة', '${_settings.pageNumOffset}', _settings.pageNumOffset.toDouble(), 0, 50, (v) { _settings.pageNumOffset = v.round(); _applySettings(); }),
                 _sliderTile(ctx, setSheetState, 'التقليب التلقائي', _settings.autoScrollInterval > 0 ? 'كل ${_settings.autoScrollInterval}ث' : 'معطل', _settings.autoScrollInterval.toDouble(), 0, 30, (v) { _settings.autoScrollInterval = v.round(); _applySettings(); }),
                 _sliderTile(ctx, setSheetState, 'تقويس الزوايا', '${_settings.imageCornerRadius}', _settings.imageCornerRadius.toDouble(), 0, 30, (v) { _settings.imageCornerRadius = v.round(); _applySettings(); }),
                 const Divider(color: Colors.white12),
@@ -867,8 +887,6 @@ class _MobileScreenState extends State<MobileScreen> {
 
             debugPrint('QURAN_DEBUG: showHLines=${_settings.showHLines} showVLines=${_settings.showVLines} borderWidth=${_settings.borderWidth} showWords=${_settings.showWordBoxes} scale=$scale imgW=$imgW imgH=$imgH');
 
-            final overlayAlpha = ((1.0 - _settings.brightness) * 255).round();
-
             Widget imageContent = SizedBox(
               width: displayW,
               height: displayH,
@@ -919,19 +937,7 @@ class _MobileScreenState extends State<MobileScreen> {
               imageWidget = Center(child: content);
             }
 
-            Widget result;
-            if (overlayAlpha > 0) {
-              result = Stack(
-                children: [
-                  imageWidget,
-                  Positioned.fill(
-                    child: ColoredBox(color: Colors.black.withAlpha(overlayAlpha)),
-                  ),
-                ],
-              );
-            } else {
-              result = imageWidget;
-            }
+            Widget result = imageWidget;
 
             if (_settings.smoothTransition) {
               result = AnimatedSwitcher(
