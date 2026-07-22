@@ -78,7 +78,6 @@ class AnnotationPainter extends CustomPainter {
 
     for (var w in words) {
       final isSelected = selectedElement == w;
-      if (!showWords && !isSelected) continue;
       final rect = Rect.fromLTRB(w.x1 * s, w.y1 * s, w.x2 * s, w.y2 * s);
 
       if (w.hidden && !showHiddenWords) {
@@ -89,6 +88,8 @@ class AnnotationPainter extends CustomPainter {
             ..style = PaintingStyle.fill,
         );
       }
+
+      if (!showWords && !isSelected) continue;
 
       if (borderWidth > 0) {
         if (isSelected) {
