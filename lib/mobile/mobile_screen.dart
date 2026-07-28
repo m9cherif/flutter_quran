@@ -520,6 +520,7 @@ class _MobileScreenState extends State<MobileScreen> {
     if (ayaNo == null || _timelineData == null) return;
     final ayaWords = provider.wordsByAya(ayaNo);
     if (ayaWords.isEmpty) return;
+    _sortedWords = provider.getSortedWords();
     final sortedIndex = <int>{};
     for (final w in ayaWords) {
       final idx = _sortedWords.indexOf(w);
