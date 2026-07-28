@@ -212,6 +212,7 @@ class _MobileScreenState extends State<MobileScreen> {
   bool _timelinePlaying = false;
   List<Map<String, dynamic>> _showEvents = [];
   List<Word> _sortedWords = [];
+  bool _ayahSelectMode = false;
 
   @override
   void initState() {
@@ -357,9 +358,10 @@ class _MobileScreenState extends State<MobileScreen> {
         final y2 = (m['y2'] as num?)?.toDouble() ?? 0;
         final id = (m['id'] as num?)?.toInt();
         final hidden = m['hidden'] == true || m['hidden'] == 1;
+        final ayaNo = (m['aya_no'] as num?)?.toInt();
         if (x2 > x1 && y2 > y1) {
           if (id != null) {
-            provider.addWordWithId(id, x1, y1, x2, y2, hidden: hidden);
+            provider.addWordWithId(id, x1, y1, x2, y2, hidden: hidden, ayaNo: ayaNo);
           } else {
             provider.addWordAtRect(x1, y1, x2, y2);
           }
@@ -407,8 +409,16 @@ class _MobileScreenState extends State<MobileScreen> {
     if (provider.image == null) return;
     final imgPos = _screenToImagePos(localPos);
     final hit = provider.hitTest(imgPos);
-    if (hit != null) {
-      provider.trySelectElement(imgPos);
+    if (hit != null && hit is Word) {
+      if (_ayahSelectMode) {
+        final words = provider.wordsByAya(hit.ayaNo);
+        if (words.isNotEmpty) {
+          _currentPlaybackWordId = hit.id;
+          provider.selectAnnotation(hit);
+        }
+      } else {
+        provider.trySelectElement(imgPos);
+      }
       if (_settings.vibrateOnWord) {
         HapticFeedback.mediumImpact();
       }
@@ -423,6 +433,20 @@ class _MobileScreenState extends State<MobileScreen> {
     if (next < 1) return;
     pageInputCtrl.text = '$next';
     loadPage('$next');
+  }
+
+  void _toggleSelectedVisibility() {
+    if (_ayahSelectMode) {
+      final word = provider.selectedElement;
+      if (word is Word) {
+        provider.toggleAyaVisibility(word.ayaNo);
+      } else if (_currentPlaybackWordId != null) {
+        final w = provider.wordById(_currentPlaybackWordId!);
+        provider.toggleAyaVisibility(w?.ayaNo);
+      }
+    } else {
+      provider.toggleSelectedWordVisibility();
+    }
   }
 
   void _submitPage(String v) {
@@ -480,6 +504,8 @@ class _MobileScreenState extends State<MobileScreen> {
     _currentPlaybackWordId = null;
     _showEvents = _timelineEvents!.where((e) => e['action'] == 'show').toList();
     _sortedWords = provider.getSortedWords();
+    final hasAya = _sortedWords.any((w) => w.ayaNo != null);
+    debugPrint('START_PLAYBACK: words=${_sortedWords.length} hasAya=$hasAya ayahMode=$_ayahSelectMode');
 
     final audioPath = _timelineData?['audio_file'] as String?;
     if (audioPath != null) {
@@ -611,7 +637,7 @@ class _MobileScreenState extends State<MobileScreen> {
             Positioned.fill(
               child: ColoredBox(color: Colors.black.withAlpha(((1.0 - _settings.brightness) * 255).round())),
             ),
-          if (_timelinePlaying) _buildPlaybackOverlay(),
+          if (_timelinePlaying || (_ayahSelectMode && _currentPlaybackWordId != null)) _buildPlaybackOverlay(),
           if (_settings.showProgressBar && provider.currentPageNumber.isNotEmpty)
             Positioned(
               bottom: 0, left: 0, right: 0,
@@ -770,6 +796,25 @@ class _MobileScreenState extends State<MobileScreen> {
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 30, minHeight: 36),
                 ),
+              if (_timelineEvents != null && _timelineEvents!.isNotEmpty)
+                IconButton(
+                  icon: Icon(
+                    Icons.auto_awesome,
+                    color: _ayahSelectMode ? const Color(0xFFD4A843) : Colors.white54,
+                    size: 16,
+                  ),
+                  onPressed: () => setState(() => _ayahSelectMode = !_ayahSelectMode),
+                  tooltip: _ayahSelectMode ? 'Ayah select' : 'Word select',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 24, minHeight: 36),
+                ),
+              IconButton(
+                icon: const Icon(Icons.visibility_off, color: Colors.white54, size: 16),
+                onPressed: _toggleSelectedVisibility,
+                tooltip: 'Hide/show selected word/ayah',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 36),
+              ),
               IconButton(
                 icon: const Icon(Icons.settings, color: Colors.white54, size: 18),
                 onPressed: _showSettings,
@@ -804,17 +849,33 @@ class _MobileScreenState extends State<MobileScreen> {
     final offsetX = (_lastW - displayW) / 2;
     final offsetY = (_lastH - displayH) / 2;
 
-    final wordRect = Rect.fromLTWH(
-      word.x1 * scale + offsetX,
-      word.y1 * scale + offsetY,
-      (word.x2 - word.x1) * scale,
-      (word.y2 - word.y1) * scale,
-    );
+    List<Rect> rects;
+    if (_ayahSelectMode && word.ayaNo != null) {
+      final ayaWords = provider.wordsByAya(word.ayaNo);
+      debugPrint('AYA_MODE: word.id=${word.id} ayaNo=${word.ayaNo} wordsInAya=${ayaWords.length}');
+      rects = ayaWords
+          .where((w) => !w.hidden)
+          .map((w) => Rect.fromLTWH(
+            w.x1 * scale + offsetX,
+            w.y1 * scale + offsetY,
+            (w.x2 - w.x1) * scale,
+            (w.y2 - w.y1) * scale,
+          )).toList();
+    } else {
+      debugPrint('AYA_MODE: word.id=${word.id} ayaNo=${word.ayaNo} active=$_ayahSelectMode');
+      if (word.hidden) return const SizedBox.shrink();
+      rects = [Rect.fromLTWH(
+        word.x1 * scale + offsetX,
+        word.y1 * scale + offsetY,
+        (word.x2 - word.x1) * scale,
+        (word.y2 - word.y1) * scale,
+      )];
+    }
 
     return Positioned.fill(
       child: IgnorePointer(
         child: CustomPaint(
-          painter: _PlaybackOverlayPainter(wordRect: wordRect),
+          painter: _PlaybackOverlayPainter(wordRects: rects),
         ),
       ),
     );
@@ -1202,35 +1263,42 @@ class _MobileScreenState extends State<MobileScreen> {
 }
 
 class _PlaybackOverlayPainter extends CustomPainter {
-  final Rect wordRect;
+  final List<Rect> wordRects;
 
-  _PlaybackOverlayPainter({required this.wordRect});
+  _PlaybackOverlayPainter({required this.wordRects});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..addRect(wordRect)
-      ..fillType = PathFillType.evenOdd;
+    final path = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    for (final rect in wordRects) {
+      path.addRect(rect);
+    }
+    path.fillType = PathFillType.evenOdd;
     canvas.drawPath(
       path,
       Paint()..color = Colors.black.withAlpha(170),
     );
-    canvas.drawRect(
-      wordRect,
-      Paint()..color = Colors.yellow.withAlpha(45),
-    );
-    canvas.drawRect(
-      wordRect,
-      Paint()
-        ..color = Colors.yellow
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0,
-    );
+    for (final rect in wordRects) {
+      canvas.drawRect(
+        rect,
+        Paint()..color = Colors.yellow.withAlpha(45),
+      );
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..color = Colors.yellow
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant _PlaybackOverlayPainter oldDelegate) {
-    return wordRect != oldDelegate.wordRect;
+    if (oldDelegate.wordRects.length != wordRects.length) return true;
+    for (var i = 0; i < wordRects.length; i++) {
+      if (oldDelegate.wordRects[i] != wordRects[i]) return true;
+    }
+    return false;
   }
 }

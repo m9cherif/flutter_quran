@@ -263,17 +263,22 @@ class AnnotationProvider extends ChangeNotifier {
     return word;
   }
 
-  Word? addWordWithId(int id, double x1, double y1, double x2, double y2, {bool hidden = false}) {
+  Word? addWordWithId(int id, double x1, double y1, double x2, double y2, {bool hidden = false, int? ayaNo}) {
     if (x2 <= x1 || y2 <= y1) return null;
     if (isDuplicateWord(x1, y1, x2, y2)) return null;
     if (_words.any((w) => w.id == id)) return null;
-    final word = Word(id: id, x1: x1, y1: y1, x2: x2, y2: y2);
+    final word = Word(id: id, x1: x1, y1: y1, x2: x2, y2: y2, ayaNo: ayaNo);
     word.hidden = hidden;
     _words.add(word);
     if (id > _wordCounter) _wordCounter = id;
     _undoStack.add(UndoAction(type: 'add_word', data: {'id': word.id}));
     notifyListeners();
     return word;
+  }
+
+  List<Word> wordsByAya(int? ayaNo) {
+    if (ayaNo == null) return [];
+    return _words.where((w) => w.ayaNo == ayaNo).toList();
   }
 
   Word? addWordAtPoint(Offset point) {
@@ -476,6 +481,20 @@ class AnnotationProvider extends ChangeNotifier {
       type: 'visibility_word',
       data: {'id': w.id, 'old_hidden': oldHidden},
     ));
+    notifyListeners();
+  }
+
+  void toggleAyaVisibility(int? ayaNo) {
+    if (ayaNo == null) return;
+    final ayaWords = wordsByAya(ayaNo);
+    if (ayaWords.isEmpty) return;
+    final allHidden = ayaWords.every((w) => w.hidden);
+    final states = <Map<String, dynamic>>[];
+    for (final w in ayaWords) {
+      states.add({'id': w.id, 'old_hidden': w.hidden});
+      w.hidden = !allHidden;
+    }
+    _undoStack.add(UndoAction(type: 'visibility_all', data: {'states': states}));
     notifyListeners();
   }
 

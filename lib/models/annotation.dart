@@ -27,6 +27,7 @@ class VLine extends Annotation {
 
 class Word extends Annotation {
   double x1, y1, x2, y2;
+  int? ayaNo;
 
   Word({
     required super.id,
@@ -34,6 +35,7 @@ class Word extends Annotation {
     required this.y1,
     required this.x2,
     required this.y2,
+    this.ayaNo,
   }) : super(type: AnnotationType.word);
 
   double get width => x2 - x1;
@@ -46,6 +48,7 @@ class Word extends Annotation {
         'y2': y2,
         'hidden': hidden,
         'id': id,
+        if (ayaNo != null) 'aya_no': ayaNo,
       };
 }
 
