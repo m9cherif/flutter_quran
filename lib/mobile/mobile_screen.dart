@@ -573,19 +573,16 @@ class _MobileScreenState extends State<MobileScreen> {
     _currentPlaybackWordId = null;
     _showEvents = _timelineEvents!.where((e) => e['action'] == 'show').toList();
     _sortedWords = provider.getSortedWords();
-    final hasAya = _sortedWords.any((w) => w.ayaNo != null);
-    debugPrint('START_PLAYBACK: words=${_sortedWords.length} hasAya=$hasAya ayahMode=$_ayahSelectMode');
-
+    final firstTime = _showEvents.isNotEmpty ? (_showEvents.first['time'] as int) : 0;
     final audioPath = _timelineData?['audio_file'] as String?;
     if (audioPath != null) {
       final filename = audioPath.split(RegExp(r'[/\\]')).last;
       final surah = filename.split('.').first;
       if (surah.isNotEmpty) {
         final url = dataService.getSurahAudioUrl(surah);
-        audioManager.loadAudioBySurahFromUrl(url, surah);
+        await audioManager.playUrlFromPosition(url, firstTime);
       }
     }
-
     audioManager.positionNotifier.addListener(_onTimelinePosition);
     _onTimelinePosition();
     _timelinePlaying = true;
