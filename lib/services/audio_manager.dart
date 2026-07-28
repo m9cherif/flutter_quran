@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
@@ -38,6 +39,15 @@ class AudioManager {
   ValueNotifier<int> timelineEventCount = ValueNotifier(0);
 
   AudioManager(this.provider) {
+    _player.setAudioContext(AudioContext(
+      android: AudioContextAndroid(
+        isSpeakerphoneOn: false,
+        stayAwake: false,
+        contentType: AndroidContentType.music,
+        usageType: AndroidUsageType.media,
+        audioFocus: AndroidAudioFocus.gain,
+      ),
+    ));
     _player.onPositionChanged.listen((pos) {
       if (!_sliderSeeking) {
         positionNotifier.value = pos.inMilliseconds;
@@ -116,10 +126,39 @@ class AudioManager {
     recording = false;
     currentSurahNumber = surahNumber;
     currentAudioFile = url;
+    audioLoaded = true;
+    statusNotifier.value = 'جاري التشغيل...';
+    try {
+      await _player.play(UrlSource(url));
+      statusNotifier.value = 'جاري التشغيل...';
+    } catch (e) {
+      statusNotifier.value = 'خطأ: $e';
+    }
+  }
+
+  Future<void> waitForPlayback() {
+    if (isPlayingNotifier.value) return Future.value();
+    final completer = Completer<void>();
+    StreamSubscription<PlayerState>? sub;
+    sub = _player.onPlayerStateChanged.listen((state) {
+      if (state == PlayerState.playing) {
+        sub?.cancel();
+        completer.complete();
+      }
+    });
+    return completer.future.timeout(const Duration(seconds: 10), onTimeout: () { sub?.cancel(); });
+  }
+
+  Future<void> loadAudioFromFile(String filePath, String surahNumber) async {
+    await stopAudio();
+    stopPlayback();
+    recording = false;
+    currentSurahNumber = surahNumber;
+    currentAudioFile = filePath;
     audioLoaded = false;
     statusNotifier.value = 'جاري التحميل...';
     try {
-      await _player.setSource(UrlSource(url));
+      await _player.setSource(DeviceFileSource(filePath));
       audioLoaded = true;
       statusNotifier.value = 'تم تحميل صوت السورة $surahNumber';
     } catch (e) {

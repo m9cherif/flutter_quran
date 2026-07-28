@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
@@ -48,6 +49,49 @@ class MobileDataService {
 
   String? getTimelineUrl(String pageNumber) {
     return '$repoBase/timeline/page${_padded(pageNumber)}.json';
+  }
+
+  String getSurahAudioUrl(String surahNumber) {
+    return 'https://cdn.jsdelivr.net/gh/m9cherif/flutter_quran_data@main/audio/${surahNumber.padLeft(3, '0')}.mp3';
+  }
+
+  String getSurahAudioUrlForCache(String surahNumber) {
+    return '$repoBase/audio/${surahNumber.padLeft(3, '0')}.mp3';
+  }
+
+  Future<Map<String, dynamic>?> getTimelineData(String pageNumber) async {
+    final name = 'page${_padded(pageNumber)}.json';
+    final local = '${await _cacheDir}/timeline/$name';
+    final file = File(local);
+    if (await file.exists()) {
+      return jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    }
+    try {
+      final response = await http.get(Uri.parse('$repoBase/timeline/$name'));
+      if (response.statusCode != 200) return null;
+      await file.parent.create(recursive: true);
+      await file.writeAsString(response.body);
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> getCachedAudioPath(String surahNumber) async {
+    final name = '${surahNumber.padLeft(3, '0')}.mp3';
+    final local = '${await _cacheDir}/audio/$name';
+    final file = File(local);
+    if (await file.exists()) return local;
+    try {
+      final url = '$repoBase/audio/$name';
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode != 200) return null;
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(response.bodyBytes);
+      return local;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<Uint8List> _fetchBytes(String url) async {

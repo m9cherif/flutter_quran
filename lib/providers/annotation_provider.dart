@@ -263,6 +263,19 @@ class AnnotationProvider extends ChangeNotifier {
     return word;
   }
 
+  Word? addWordWithId(int id, double x1, double y1, double x2, double y2, {bool hidden = false}) {
+    if (x2 <= x1 || y2 <= y1) return null;
+    if (isDuplicateWord(x1, y1, x2, y2)) return null;
+    if (_words.any((w) => w.id == id)) return null;
+    final word = Word(id: id, x1: x1, y1: y1, x2: x2, y2: y2);
+    word.hidden = hidden;
+    _words.add(word);
+    if (id > _wordCounter) _wordCounter = id;
+    _undoStack.add(UndoAction(type: 'add_word', data: {'id': word.id}));
+    notifyListeners();
+    return word;
+  }
+
   Word? addWordAtPoint(Offset point) {
     final hBounds = findBoundingHLines(point.dy);
     if (hBounds == null) return null;
@@ -464,6 +477,21 @@ class AnnotationProvider extends ChangeNotifier {
       data: {'id': w.id, 'old_hidden': oldHidden},
     ));
     notifyListeners();
+  }
+
+  Word? wordById(int id) {
+    for (var w in _words) {
+      if (w.id == id) return w;
+    }
+    return null;
+  }
+
+  void selectWordById(int id) {
+    final word = wordById(id);
+    if (word != null) {
+      _selectedElement = word;
+      notifyListeners();
+    }
   }
 
   void navigateToNextWord() {

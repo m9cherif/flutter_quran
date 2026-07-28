@@ -4,10 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../providers/annotation_provider.dart';
 import '../services/xlsx_reader.dart';
 import '../services/audio_manager.dart';
 import 'package:flutter_quran/l10n/app_localizations.dart';
+import '../models/annotation.dart';
 import '../widgets/annotation_painter.dart';
 import 'mobile_data_service.dart';
 
@@ -203,6 +205,14 @@ class _MobileScreenState extends State<MobileScreen> {
   bool _isLandscape = false;
   double _zoomMultiplier = 1.0;
 
+  Map<String, dynamic>? _timelineData;
+  List<Map<String, dynamic>>? _timelineEvents;
+  int? _currentPlaybackWordId;
+  int _timelineIndex = 0;
+  bool _timelinePlaying = false;
+  List<Map<String, dynamic>> _showEvents = [];
+  List<Word> _sortedWords = [];
+
   @override
   void initState() {
     super.initState();
@@ -217,6 +227,7 @@ class _MobileScreenState extends State<MobileScreen> {
   void dispose() {
     _overlayTimer?.cancel();
     _autoScrollTimer?.cancel();
+    audioManager.positionNotifier.removeListener(_onTimelinePosition);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     provider.removeListener(_onProviderChange);
     audioManager.cleanup();
@@ -270,6 +281,7 @@ class _MobileScreenState extends State<MobileScreen> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
     _updateAutoScroll();
+    WakelockPlus.toggle(enable: _settings.keepAwake);
     if (_settings.lockOrientation) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
@@ -343,12 +355,19 @@ class _MobileScreenState extends State<MobileScreen> {
         final y1 = (m['y1'] as num?)?.toDouble() ?? 0;
         final x2 = (m['x2'] as num?)?.toDouble() ?? 0;
         final y2 = (m['y2'] as num?)?.toDouble() ?? 0;
+        final id = (m['id'] as num?)?.toInt();
+        final hidden = m['hidden'] == true || m['hidden'] == 1;
         if (x2 > x1 && y2 > y1) {
-          provider.addWordAtRect(x1, y1, x2, y2);
+          if (id != null) {
+            provider.addWordWithId(id, x1, y1, x2, y2, hidden: hidden);
+          } else {
+            provider.addWordAtRect(x1, y1, x2, y2);
+          }
         }
       }
 
       _updateAutoScroll();
+      _tryLoadTimeline(pageNumber);
 
     } catch (e) {
       setState(() => _errorMessage = e.toString());
@@ -413,6 +432,122 @@ class _MobileScreenState extends State<MobileScreen> {
     }
   }
 
+  Future<void> _tryLoadTimeline(String pageNumber) async {
+    _stopPlayback();
+    try {
+      final data = await dataService.getTimelineData(pageNumber);
+      if (!mounted) return;
+      if (data != null) {
+        setState(() {
+          _timelineData = data;
+          _timelineEvents = (data['events'] as List).cast<Map<String, dynamic>>();
+        });
+        if (_settings.autoLoadAudio) {
+          _startPlayback();
+        }
+      } else {
+        setState(() {
+          _timelineData = null;
+          _timelineEvents = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _timelineData = null;
+          _timelineEvents = null;
+        });
+      }
+    }
+  }
+
+  void _togglePlayback() {
+    if (_timelinePlaying || audioManager.isPlayingNotifier.value) {
+      if (audioManager.isPlayingNotifier.value) {
+        _pausePlayback();
+      } else {
+        _resumePlayback();
+      }
+    } else {
+      _startPlayback();
+    }
+  }
+
+  Future<void> _startPlayback() async {
+    if (_timelineEvents == null || _timelineEvents!.isEmpty) return;
+    audioManager.positionNotifier.removeListener(_onTimelinePosition);
+    _timelineIndex = 0;
+    _currentPlaybackWordId = null;
+    _showEvents = _timelineEvents!.where((e) => e['action'] == 'show').toList();
+    _sortedWords = provider.getSortedWords();
+
+    final audioPath = _timelineData?['audio_file'] as String?;
+    if (audioPath != null) {
+      final filename = audioPath.split(RegExp(r'[/\\]')).last;
+      final surah = filename.split('.').first;
+      if (surah.isNotEmpty) {
+        final url = dataService.getSurahAudioUrl(surah);
+        audioManager.loadAudioBySurahFromUrl(url, surah);
+      }
+    }
+
+    audioManager.positionNotifier.addListener(_onTimelinePosition);
+    _onTimelinePosition();
+    _timelinePlaying = true;
+    if (mounted) setState(() {});
+  }
+
+  void _onTimelinePosition() {
+    if (!_timelinePlaying || _timelineEvents == null) return;
+    final pos = audioManager.positionNotifier.value;
+    var changed = false;
+    while (_timelineIndex < _timelineEvents!.length) {
+      final event = _timelineEvents![_timelineIndex];
+      if ((event['time'] as int) <= pos) {
+        final action = event['action'] as String;
+        if (action == 'hide') {
+          _currentPlaybackWordId = null;
+          provider.selectAnnotation(null);
+        } else if (action == 'show') {
+          final evIdx = _showEvents.indexOf(event);
+          if (evIdx >= 0 && evIdx < _sortedWords.length) {
+            final word = _sortedWords[evIdx];
+            _currentPlaybackWordId = word.id;
+            provider.selectWordById(word.id);
+          }
+        }
+        _timelineIndex++;
+        changed = true;
+      } else {
+        break;
+      }
+    }
+    if (_timelineIndex >= _timelineEvents!.length) {
+      audioManager.positionNotifier.removeListener(_onTimelinePosition);
+      _timelinePlaying = false;
+    }
+    if (changed && mounted) setState(() {});
+  }
+
+  void _pausePlayback() {
+    audioManager.toggleAudioPlay();
+    if (mounted) setState(() {});
+  }
+
+  void _resumePlayback() {
+    audioManager.toggleAudioPlay();
+    if (mounted) setState(() {});
+  }
+
+  void _stopPlayback() {
+    audioManager.positionNotifier.removeListener(_onTimelinePosition);
+    _timelinePlaying = false;
+    _timelineIndex = 0;
+    _currentPlaybackWordId = null;
+    provider.selectAnnotation(null);
+    audioManager.stopAudio();
+    if (mounted) setState(() {});
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -476,6 +611,7 @@ class _MobileScreenState extends State<MobileScreen> {
             Positioned.fill(
               child: ColoredBox(color: Colors.black.withAlpha(((1.0 - _settings.brightness) * 255).round())),
             ),
+          if (_timelinePlaying) _buildPlaybackOverlay(),
           if (_settings.showProgressBar && provider.currentPageNumber.isNotEmpty)
             Positioned(
               bottom: 0, left: 0, right: 0,
@@ -575,59 +711,110 @@ class _MobileScreenState extends State<MobileScreen> {
       child: Container(
         color: const Color(0x99000000),
         padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 4, bottom: 8),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left, color: Color(0xFFD4A843), size: 28),
-              onPressed: () => _navigatePage(-1),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            ),
-            const Icon(Icons.auto_stories, color: Color(0xFFD4A843), size: 18),
-            const SizedBox(width: 6),
-            Text(tr(_settings.language, 'quran'),
-                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-            const Spacer(),
-            if (currentPage.isNotEmpty)
-              Text('${tr(_settings.language, 'page')} $currentPage',
-                  style: const TextStyle(color: Color(0xFFD4A843), fontSize: 13, fontWeight: FontWeight.bold)),
-            const SizedBox(width: 4),
-            if (_settings.showZoomButtons) ...[
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
               IconButton(
-                icon: const Icon(Icons.zoom_out, color: Colors.white54, size: 20),
-                onPressed: () => setState(() => _zoomMultiplier = (_zoomMultiplier - 0.25).clamp(0.5, 3.0)),
+                icon: const Icon(Icons.chevron_left, color: Color(0xFFD4A843), size: 24),
+                onPressed: () => _navigatePage(-1),
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 36),
               ),
-              Text('${(_zoomMultiplier * 100).round()}%',
-                  style: const TextStyle(color: Color(0xFFD4A843), fontSize: 11)),
-              IconButton(
-                icon: const Icon(Icons.zoom_in, color: Colors.white54, size: 20),
-                onPressed: () => setState(() => _zoomMultiplier = (_zoomMultiplier + 0.25).clamp(0.5, 3.0)),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              ),
-              if (_zoomMultiplier != 1.0)
-                IconButton(
-                  icon: const Icon(Icons.zoom_out_map, color: Color(0xFFD4A843), size: 18),
-                  onPressed: () => setState(() => _zoomMultiplier = 1.0),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              if (currentPage.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD4A843).withAlpha(40),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(currentPage,
+                        style: const TextStyle(color: Color(0xFFD4A843), fontSize: 13, fontWeight: FontWeight.bold)),
+                  ),
                 ),
+              if (_settings.showZoomButtons) ...[
+                IconButton(
+                  icon: const Icon(Icons.zoom_out, color: Colors.white54, size: 18),
+                  onPressed: () => setState(() => _zoomMultiplier = (_zoomMultiplier - 0.25).clamp(0.5, 3.0)),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 36),
+                ),
+                Text('${(_zoomMultiplier * 100).round()}%',
+                    style: const TextStyle(color: Color(0xFFD4A843), fontSize: 10)),
+                IconButton(
+                  icon: const Icon(Icons.zoom_in, color: Colors.white54, size: 18),
+                  onPressed: () => setState(() => _zoomMultiplier = (_zoomMultiplier + 0.25).clamp(0.5, 3.0)),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 36),
+                ),
+                if (_zoomMultiplier != 1.0)
+                  IconButton(
+                    icon: const Icon(Icons.zoom_out_map, color: Color(0xFFD4A843), size: 16),
+                    onPressed: () => setState(() => _zoomMultiplier = 1.0),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 24, minHeight: 36),
+                  ),
+              ],
+              if (_timelineEvents != null && _timelineEvents!.isNotEmpty)
+                IconButton(
+                  icon: Icon(
+                    audioManager.isPlayingNotifier.value
+                        ? Icons.pause
+                        : (_timelinePlaying ? Icons.play_arrow : Icons.play_circle_fill),
+                    color: _timelinePlaying ? const Color(0xFFD4A843) : Colors.white54,
+                    size: 18,
+                  ),
+                  onPressed: _togglePlayback,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 36),
+                ),
+              IconButton(
+                icon: const Icon(Icons.settings, color: Colors.white54, size: 18),
+                onPressed: _showSettings,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 30, minHeight: 36),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, color: Color(0xFFD4A843), size: 24),
+                onPressed: () => _navigatePage(1),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 36),
+              ),
             ],
-            IconButton(
-              icon: const Icon(Icons.settings, color: Colors.white54, size: 20),
-              onPressed: _showSettings,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right, color: Color(0xFFD4A843), size: 28),
-              onPressed: () => _navigatePage(1),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaybackOverlay() {
+    if (_currentPlaybackWordId == null || provider.image == null) {
+      return const SizedBox.shrink();
+    }
+    final word = provider.wordById(_currentPlaybackWordId!);
+    if (word == null) return const SizedBox.shrink();
+
+    final scale = _computeScale(_lastW, _lastH);
+    final imgW = provider.image!.width.toDouble();
+    final imgH = provider.image!.height.toDouble();
+    final displayW = imgW * scale;
+    final displayH = imgH * scale;
+    final offsetX = (_lastW - displayW) / 2;
+    final offsetY = (_lastH - displayH) / 2;
+
+    final wordRect = Rect.fromLTWH(
+      word.x1 * scale + offsetX,
+      word.y1 * scale + offsetY,
+      (word.x2 - word.x1) * scale,
+      (word.y2 - word.y1) * scale,
+    );
+
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: CustomPaint(
+          painter: _PlaybackOverlayPainter(wordRect: wordRect),
         ),
       ),
     );
@@ -1011,5 +1198,39 @@ class _MobileScreenState extends State<MobileScreen> {
         ),
       ),
     );
+  }
+}
+
+class _PlaybackOverlayPainter extends CustomPainter {
+  final Rect wordRect;
+
+  _PlaybackOverlayPainter({required this.wordRect});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..addRect(wordRect)
+      ..fillType = PathFillType.evenOdd;
+    canvas.drawPath(
+      path,
+      Paint()..color = Colors.black.withAlpha(170),
+    );
+    canvas.drawRect(
+      wordRect,
+      Paint()..color = Colors.yellow.withAlpha(45),
+    );
+    canvas.drawRect(
+      wordRect,
+      Paint()
+        ..color = Colors.yellow
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlaybackOverlayPainter oldDelegate) {
+    return wordRect != oldDelegate.wordRect;
   }
 }
