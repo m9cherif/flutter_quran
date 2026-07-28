@@ -144,7 +144,16 @@ class AudioManager {
     audioLoaded = true;
     statusNotifier.value = 'جاري التشغيل...';
     try {
-      await _player.play(UrlSource(url), position: Duration(milliseconds: startMs));
+      await _player.setSource(UrlSource(url));
+      final completer = Completer<void>();
+      StreamSubscription<Duration>? sub;
+      sub = _player.onDurationChanged.listen((_) {
+        sub?.cancel();
+        completer.complete();
+      });
+      await completer.future.timeout(const Duration(seconds: 5));
+      await _player.seek(Duration(milliseconds: startMs));
+      await _player.resume();
       positionNotifier.value = startMs;
     } catch (e) {
       statusNotifier.value = 'خطأ: $e';
