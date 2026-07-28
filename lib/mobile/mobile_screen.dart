@@ -508,11 +508,14 @@ class _MobileScreenState extends State<MobileScreen> {
     debugPrint('START_PLAYBACK: words=${_sortedWords.length} hasAya=$hasAya ayahMode=$_ayahSelectMode');
 
     final audioPath = _timelineData?['audio_file'] as String?;
+    debugPrint('START_PLAYBACK: audioPath=$audioPath');
     if (audioPath != null) {
       final filename = audioPath.split(RegExp(r'[/\\]')).last;
       final surah = filename.split('.').first;
+      debugPrint('START_PLAYBACK: filename=$filename surah=$surah');
       if (surah.isNotEmpty) {
         final url = dataService.getSurahAudioUrl(surah);
+        debugPrint('START_PLAYBACK: url=$url');
         audioManager.loadAudioBySurahFromUrl(url, surah);
       }
     }
@@ -637,7 +640,7 @@ class _MobileScreenState extends State<MobileScreen> {
             Positioned.fill(
               child: ColoredBox(color: Colors.black.withAlpha(((1.0 - _settings.brightness) * 255).round())),
             ),
-          if (_timelinePlaying || (_ayahSelectMode && _currentPlaybackWordId != null)) _buildPlaybackOverlay(),
+          if (_currentPlaybackWordId != null && (_timelinePlaying || _ayahSelectMode)) _buildPlaybackOverlay(),
           if (_settings.showProgressBar && provider.currentPageNumber.isNotEmpty)
             Positioned(
               bottom: 0, left: 0, right: 0,
@@ -835,10 +838,12 @@ class _MobileScreenState extends State<MobileScreen> {
   }
 
   Widget _buildPlaybackOverlay() {
+    debugPrint('PLAYBACK_OVERLAY: wordId=$_currentPlaybackWordId hasImage=${provider.image != null}');
     if (_currentPlaybackWordId == null || provider.image == null) {
       return const SizedBox.shrink();
     }
     final word = provider.wordById(_currentPlaybackWordId!);
+    debugPrint('PLAYBACK_OVERLAY: wordFound=${word != null}');
     if (word == null) return const SizedBox.shrink();
 
     final scale = _computeScale(_lastW, _lastH);
