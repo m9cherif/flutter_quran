@@ -371,12 +371,7 @@ class _MobileScreenState extends State<MobileScreen> {
         }
       }
 
-      final cachedHidden = await dataService.loadHiddenStates(pageNumber);
-      for (final w in provider.words) {
-        if (cachedHidden.containsKey(w.id)) {
-          w.hidden = cachedHidden[w.id]!;
-        }
-      }
+      await dataService.clearHiddenStates(pageNumber);
 
       _updateAutoScroll();
       _tryLoadTimeline(pageNumber);

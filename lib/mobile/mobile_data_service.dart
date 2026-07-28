@@ -126,4 +126,11 @@ class MobileDataService {
     final data = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
     return data.map((k, v) => MapEntry(int.parse(k), v as bool));
   }
+
+  Future<void> clearHiddenStates(String pageNumber) async {
+    final file = File('${await _cacheDir}/hidden/page${_padded(pageNumber)}.json');
+    if (await file.exists()) {
+      await file.delete();
+    }
+  }
 }
