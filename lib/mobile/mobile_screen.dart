@@ -368,6 +368,13 @@ class _MobileScreenState extends State<MobileScreen> {
         }
       }
 
+      final cachedHidden = await dataService.loadHiddenStates(pageNumber);
+      for (final w in provider.words) {
+        if (cachedHidden.containsKey(w.id)) {
+          w.hidden = cachedHidden[w.id]!;
+        }
+      }
+
       _updateAutoScroll();
       _tryLoadTimeline(pageNumber);
 
@@ -447,6 +454,17 @@ class _MobileScreenState extends State<MobileScreen> {
     } else {
       provider.toggleSelectedWordVisibility();
     }
+    _saveHiddenStates();
+  }
+
+  Future<void> _saveHiddenStates() async {
+    final page = provider.currentPageNumber;
+    if (page.isEmpty) return;
+    final states = <int, bool>{};
+    for (final w in provider.words) {
+      states[w.id] = w.hidden;
+    }
+    await dataService.saveHiddenStates(page, states);
   }
 
   void _submitPage(String v) {
@@ -508,14 +526,11 @@ class _MobileScreenState extends State<MobileScreen> {
     debugPrint('START_PLAYBACK: words=${_sortedWords.length} hasAya=$hasAya ayahMode=$_ayahSelectMode');
 
     final audioPath = _timelineData?['audio_file'] as String?;
-    debugPrint('START_PLAYBACK: audioPath=$audioPath');
     if (audioPath != null) {
       final filename = audioPath.split(RegExp(r'[/\\]')).last;
       final surah = filename.split('.').first;
-      debugPrint('START_PLAYBACK: filename=$filename surah=$surah');
       if (surah.isNotEmpty) {
         final url = dataService.getSurahAudioUrl(surah);
-        debugPrint('START_PLAYBACK: url=$url');
         audioManager.loadAudioBySurahFromUrl(url, surah);
       }
     }
@@ -838,12 +853,10 @@ class _MobileScreenState extends State<MobileScreen> {
   }
 
   Widget _buildPlaybackOverlay() {
-    debugPrint('PLAYBACK_OVERLAY: wordId=$_currentPlaybackWordId hasImage=${provider.image != null}');
     if (_currentPlaybackWordId == null || provider.image == null) {
       return const SizedBox.shrink();
     }
     final word = provider.wordById(_currentPlaybackWordId!);
-    debugPrint('PLAYBACK_OVERLAY: wordFound=${word != null}');
     if (word == null) return const SizedBox.shrink();
 
     final scale = _computeScale(_lastW, _lastH);
@@ -857,7 +870,6 @@ class _MobileScreenState extends State<MobileScreen> {
     List<Rect> rects;
     if (_ayahSelectMode && word.ayaNo != null) {
       final ayaWords = provider.wordsByAya(word.ayaNo);
-      debugPrint('AYA_MODE: word.id=${word.id} ayaNo=${word.ayaNo} wordsInAya=${ayaWords.length}');
       rects = ayaWords
           .where((w) => !w.hidden)
           .map((w) => Rect.fromLTWH(
@@ -867,7 +879,6 @@ class _MobileScreenState extends State<MobileScreen> {
             (w.y2 - w.y1) * scale,
           )).toList();
     } else {
-      debugPrint('AYA_MODE: word.id=${word.id} ayaNo=${word.ayaNo} active=$_ayahSelectMode');
       if (word.hidden) return const SizedBox.shrink();
       rects = [Rect.fromLTWH(
         word.x1 * scale + offsetX,
@@ -880,7 +891,7 @@ class _MobileScreenState extends State<MobileScreen> {
     return Positioned.fill(
       child: IgnorePointer(
         child: CustomPaint(
-          painter: _PlaybackOverlayPainter(wordRects: rects),
+          painter: _PlaybackOverlayPainter(wordRects: rects, darkOverlay: _timelinePlaying),
         ),
       ),
     );
@@ -1269,20 +1280,23 @@ class _MobileScreenState extends State<MobileScreen> {
 
 class _PlaybackOverlayPainter extends CustomPainter {
   final List<Rect> wordRects;
+  final bool darkOverlay;
 
-  _PlaybackOverlayPainter({required this.wordRects});
+  _PlaybackOverlayPainter({required this.wordRects, this.darkOverlay = true});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    for (final rect in wordRects) {
-      path.addRect(rect);
+    if (darkOverlay) {
+      final path = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+      for (final rect in wordRects) {
+        path.addRect(rect);
+      }
+      path.fillType = PathFillType.evenOdd;
+      canvas.drawPath(
+        path,
+        Paint()..color = Colors.black.withAlpha(170),
+      );
     }
-    path.fillType = PathFillType.evenOdd;
-    canvas.drawPath(
-      path,
-      Paint()..color = Colors.black.withAlpha(170),
-    );
     for (final rect in wordRects) {
       canvas.drawRect(
         rect,
@@ -1300,6 +1314,7 @@ class _PlaybackOverlayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PlaybackOverlayPainter oldDelegate) {
+    if (darkOverlay != oldDelegate.darkOverlay) return true;
     if (oldDelegate.wordRects.length != wordRects.length) return true;
     for (var i = 0; i < wordRects.length; i++) {
       if (oldDelegate.wordRects[i] != wordRects[i]) return true;

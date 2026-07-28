@@ -112,4 +112,18 @@ class MobileDataService {
       return false;
     }
   }
+
+  Future<void> saveHiddenStates(String pageNumber, Map<int, bool> hiddenStates) async {
+    final dir = '${await _cacheDir}/hidden';
+    final file = File('$dir/page${_padded(pageNumber)}.json');
+    await file.parent.create(recursive: true);
+    await file.writeAsString(jsonEncode(hiddenStates));
+  }
+
+  Future<Map<int, bool>> loadHiddenStates(String pageNumber) async {
+    final file = File('${await _cacheDir}/hidden/page${_padded(pageNumber)}.json');
+    if (!await file.exists()) return {};
+    final data = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    return data.map((k, v) => MapEntry(int.parse(k), v as bool));
+  }
 }
