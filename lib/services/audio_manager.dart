@@ -136,6 +136,21 @@ class AudioManager {
     }
   }
 
+  Future<void> playUrlFromPosition(String url, int startMs) async {
+    await stopAudio();
+    stopPlayback();
+    recording = false;
+    currentAudioFile = url;
+    audioLoaded = true;
+    statusNotifier.value = 'جاري التشغيل...';
+    try {
+      await _player.play(UrlSource(url), position: Duration(milliseconds: startMs));
+      positionNotifier.value = startMs;
+    } catch (e) {
+      statusNotifier.value = 'خطأ: $e';
+    }
+  }
+
   Future<void> waitForPlayback() {
     if (isPlayingNotifier.value) return Future.value();
     final completer = Completer<void>();

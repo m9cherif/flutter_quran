@@ -557,8 +557,7 @@ class _MobileScreenState extends State<MobileScreen> {
       final surah = filename.split('.').first;
       if (surah.isNotEmpty) {
         final url = dataService.getSurahAudioUrl(surah);
-        await audioManager.loadAudioBySurahFromUrl(url, surah);
-        if (firstTime > 0) await audioManager.seekAudio(firstTime);
+        await audioManager.playUrlFromPosition(url, firstTime);
       }
     }
     _timelinePlaying = true;
