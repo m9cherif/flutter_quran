@@ -15,7 +15,7 @@ class MobileDataService {
   String _padded(String page) => page.padLeft(3, '0');
 
   Future<String> get _cacheDir async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await getTemporaryDirectory();
     final cache = Directory('${dir.path}/quran_cache');
     if (!await cache.exists()) await cache.create(recursive: true);
     return cache.path;

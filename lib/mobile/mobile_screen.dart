@@ -1037,7 +1037,7 @@ class _MobileScreenState extends State<MobileScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: TextButton.icon(
                     onPressed: () async {
-                      final dir = await getApplicationDocumentsDirectory();
+                      final dir = await getTemporaryDirectory();
                       final cache = Directory('${dir.path}/quran_cache');
                       if (await cache.exists()) {
                         await cache.delete(recursive: true);
