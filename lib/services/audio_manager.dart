@@ -214,8 +214,14 @@ class AudioManager {
     statusNotifier.value = 'متوقف';
   }
 
-  void seekAudio(int positionMs) {
-    _player.seek(Duration(milliseconds: positionMs));
+  Future<void> seekAudio(int positionMs) async {
+    await _player.seek(Duration(milliseconds: positionMs));
+    positionNotifier.value = positionMs;
+  }
+
+  Future<int> getCurrentPosition() async {
+    final d = await _player.getCurrentPosition();
+    return d?.inMilliseconds ?? 0;
   }
 
   void onSliderPressed() => _sliderSeeking = true;
