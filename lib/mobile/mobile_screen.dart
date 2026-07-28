@@ -213,6 +213,9 @@ class _MobileScreenState extends State<MobileScreen> {
   List<Map<String, dynamic>> _showEvents = [];
   List<Word> _sortedWords = [];
   bool _ayahSelectMode = false;
+  int? _ayahEndTime;
+  List<Map<String, dynamic>>? _savedTimelineEvents;
+  List<Map<String, dynamic>> _savedShowEvents = [];
 
   @override
   void initState() {
@@ -418,11 +421,9 @@ class _MobileScreenState extends State<MobileScreen> {
     final hit = provider.hitTest(imgPos);
     if (hit != null && hit is Word) {
       if (_ayahSelectMode) {
-        final words = provider.wordsByAya(hit.ayaNo);
-        if (words.isNotEmpty) {
-          _currentPlaybackWordId = hit.id;
-          provider.selectAnnotation(hit);
-        }
+        _currentPlaybackWordId = hit.id;
+        provider.selectAnnotation(hit);
+        _startAyahPlayback(hit.ayaNo);
       } else {
         provider.trySelectElement(imgPos);
       }
@@ -515,6 +516,56 @@ class _MobileScreenState extends State<MobileScreen> {
     }
   }
 
+  Future<void> _startAyahPlayback(int? ayaNo) async {
+    if (ayaNo == null || _timelineData == null) return;
+    final ayaWords = provider.wordsByAya(ayaNo);
+    if (ayaWords.isEmpty) return;
+    final sortedIndex = <int>{};
+    for (final w in ayaWords) {
+      final idx = _sortedWords.indexOf(w);
+      if (idx >= 0) sortedIndex.add(idx);
+    }
+    if (sortedIndex.isEmpty) return;
+    final fullShow = _timelineData!['events']
+        .where((e) => e['action'] == 'show')
+        .cast<Map<String, dynamic>>()
+        .toList();
+    final ayahShowEvents = <Map<String, dynamic>>[];
+    for (var i = 0; i < fullShow.length; i++) {
+      if (sortedIndex.contains(i)) ayahShowEvents.add(fullShow[i]);
+    }
+    if (ayahShowEvents.isEmpty) return;
+    final firstTime = ayahShowEvents.first['time'] as int;
+    final lastTime = ayahShowEvents.last['time'] as int;
+    _ayahEndTime = lastTime + 3000;
+    final ayahEventIds = ayahShowEvents.map((e) => e['word_id']).toSet();
+    final ayahEvents = (_timelineData!['events'] as List)
+        .where((e) => e['action'] == 'show' && ayahEventIds.contains(e['word_id']))
+        .cast<Map<String, dynamic>>()
+        .toList();
+    _savedTimelineEvents = _timelineEvents;
+    _savedShowEvents = List.from(_showEvents);
+    audioManager.positionNotifier.removeListener(_onTimelinePosition);
+    _timelineIndex = 0;
+    _currentPlaybackWordId = null;
+    _showEvents = ayahShowEvents;
+    _timelineEvents = ayahEvents;
+    final audioPath = _timelineData?['audio_file'] as String?;
+    if (audioPath != null) {
+      final filename = audioPath.split(RegExp(r'[/\\]')).last;
+      final surah = filename.split('.').first;
+      if (surah.isNotEmpty) {
+        final url = dataService.getSurahAudioUrl(surah);
+        await audioManager.loadAudioBySurahFromUrl(url, surah);
+        if (firstTime > 0) audioManager.seekAudio(firstTime);
+      }
+    }
+    audioManager.positionNotifier.addListener(_onTimelinePosition);
+    _onTimelinePosition();
+    _timelinePlaying = true;
+    if (mounted) setState(() {});
+  }
+
   Future<void> _startPlayback() async {
     if (_timelineEvents == null || _timelineEvents!.isEmpty) return;
     audioManager.positionNotifier.removeListener(_onTimelinePosition);
@@ -544,6 +595,10 @@ class _MobileScreenState extends State<MobileScreen> {
   void _onTimelinePosition() {
     if (!_timelinePlaying || _timelineEvents == null) return;
     final pos = audioManager.positionNotifier.value;
+    if (_ayahEndTime != null && pos > _ayahEndTime!) {
+      _stopPlayback();
+      return;
+    }
     var changed = false;
     while (_timelineIndex < _timelineEvents!.length) {
       final event = _timelineEvents![_timelineIndex];
@@ -566,7 +621,7 @@ class _MobileScreenState extends State<MobileScreen> {
         break;
       }
     }
-    if (_timelineIndex >= _timelineEvents!.length) {
+    if (_timelineIndex >= _timelineEvents!.length || (_ayahEndTime != null && pos > _ayahEndTime!)) {
       audioManager.positionNotifier.removeListener(_onTimelinePosition);
       _timelinePlaying = false;
     }
@@ -588,7 +643,14 @@ class _MobileScreenState extends State<MobileScreen> {
     _timelinePlaying = false;
     _timelineIndex = 0;
     _currentPlaybackWordId = null;
+    _ayahEndTime = null;
     provider.selectAnnotation(null);
+    if (_savedTimelineEvents != null) {
+      _showEvents = _savedShowEvents;
+      _timelineEvents = _savedTimelineEvents;
+      _savedTimelineEvents = null;
+      _savedShowEvents = [];
+    }
     audioManager.stopAudio();
     if (mounted) setState(() {});
   }
