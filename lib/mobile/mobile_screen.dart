@@ -624,9 +624,14 @@ class _MobileScreenState extends State<MobileScreen> {
         break;
       }
     }
-    if (_timelineIndex >= _timelineEvents!.length || (_ayahEndTime != null && pos > _ayahEndTime!)) {
-      audioManager.positionNotifier.removeListener(_onTimelinePosition);
-      _timelinePlaying = false;
+    if (_timelineIndex >= _timelineEvents!.length) {
+      if (_ayahEndTime == null) {
+        audioManager.positionNotifier.removeListener(_onTimelinePosition);
+        _timelinePlaying = false;
+      }
+    }
+    if (_ayahEndTime != null && pos > _ayahEndTime!) {
+      _stopPlayback();
     }
     if (changed && mounted) setState(() {});
   }
