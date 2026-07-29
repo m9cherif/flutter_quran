@@ -137,23 +137,14 @@ class AudioManager {
   }
 
   Future<void> playUrlFromPosition(String url, int startMs) async {
-    await stopAudio();
-    stopPlayback();
     recording = false;
     currentAudioFile = url;
     audioLoaded = true;
     statusNotifier.value = 'جاري التشغيل...';
     try {
-      await _player.setSource(UrlSource(url));
-      final completer = Completer<void>();
-      StreamSubscription<Duration>? sub;
-      sub = _player.onDurationChanged.listen((_) {
-        sub?.cancel();
-        completer.complete();
-      });
-      await completer.future.timeout(const Duration(seconds: 5));
-      await _player.seek(Duration(milliseconds: startMs));
-      await _player.resume();
+      stopPlayback();
+      await _player.stop();
+      await _player.play(UrlSource(url), position: Duration(milliseconds: startMs));
       positionNotifier.value = startMs;
     } catch (e) {
       statusNotifier.value = 'خطأ: $e';
