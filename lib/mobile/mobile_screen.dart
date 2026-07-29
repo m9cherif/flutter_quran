@@ -512,22 +512,15 @@ class _MobileScreenState extends State<MobileScreen> {
   }
 
   Future<void> _startAyahPlayback(int? ayaNo) async {
-    debugPrint('AYAH_PLAY: ayaNo=$ayaNo timelineData=${_timelineData != null}');
-    if (ayaNo == null || _timelineData == null) {
-      debugPrint('AYAH_PLAY: early return ayaNo=$ayaNo tl=${_timelineData != null}');
-      return;
-    }
+    if (ayaNo == null || _timelineData == null) return;
     final ayaWords = provider.wordsByAya(ayaNo);
-    debugPrint('AYAH_PLAY: ayaWords=${ayaWords.length}');
     if (ayaWords.isEmpty) return;
     _sortedWords = provider.getSortedWords();
     final sortedIndex = <int>{};
     for (final w in ayaWords) {
       final idx = _sortedWords.indexOf(w);
-      debugPrint('AYAH_PLAY: word id=${w.id} idx=$idx');
       if (idx >= 0) sortedIndex.add(idx);
     }
-    debugPrint('AYAH_PLAY: sortedIndex=${sortedIndex.length}');
     if (sortedIndex.isEmpty) return;
     final fullShow = _timelineData!['events']
         .where((e) => e['action'] == 'show')
@@ -537,7 +530,6 @@ class _MobileScreenState extends State<MobileScreen> {
     for (var i = 0; i < fullShow.length; i++) {
       if (sortedIndex.contains(i)) ayahShowEvents.add(fullShow[i]);
     }
-    debugPrint('AYAH_PLAY: ayahShowEvents=${ayahShowEvents.length} fullShow=${fullShow.length}');
     if (ayahShowEvents.isEmpty) return;
     final firstTime = ayahShowEvents.first['time'] as int;
     final lastTime = ayahShowEvents.last['time'] as int;
@@ -555,14 +547,11 @@ class _MobileScreenState extends State<MobileScreen> {
     _showEvents = ayahShowEvents;
     _timelineEvents = ayahEvents;
     final audioPath = _timelineData?['audio_file'] as String?;
-    debugPrint('AYAH_PLAY: firstTime=$firstTime audioPath=$audioPath');
     if (audioPath != null) {
       final filename = audioPath.split(RegExp(r'[/\\]')).last;
       final surah = filename.split('.').first;
-      debugPrint('AYAH_PLAY: surah=$surah');
       if (surah.isNotEmpty) {
         final url = dataService.getSurahAudioUrl(surah);
-        debugPrint('AYAH_PLAY: url=$url');
         await audioManager.playUrlFromPosition(url, firstTime);
       }
     }
@@ -570,7 +559,6 @@ class _MobileScreenState extends State<MobileScreen> {
     audioManager.positionNotifier.addListener(_onTimelinePosition);
     _onTimelinePosition();
     if (mounted) setState(() {});
-    debugPrint('AYAH_PLAY: done');
   }
 
   Future<void> _startPlayback() async {
