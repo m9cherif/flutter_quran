@@ -527,8 +527,9 @@ class _MobileScreenState extends State<MobileScreen> {
         .cast<Map<String, dynamic>>()
         .toList();
     final ayahShowEvents = <Map<String, dynamic>>[];
-    for (var i = 0; i < fullShow.length; i++) {
-      if (sortedIndex.contains(i)) ayahShowEvents.add(fullShow[i]);
+    final maxIdx = fullShow.length;
+    for (final si in sortedIndex) {
+      if (si < maxIdx) ayahShowEvents.add(fullShow[si]);
     }
     if (ayahShowEvents.isEmpty) return;
     final firstTime = ayahShowEvents.first['time'] as int;

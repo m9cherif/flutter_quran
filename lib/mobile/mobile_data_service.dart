@@ -63,18 +63,18 @@ class MobileDataService {
     final name = 'page${_padded(pageNumber)}.json';
     final local = '${await _cacheDir}/timeline/$name';
     final file = File(local);
+    try {
+      final response = await http.get(Uri.parse('$repoBase/timeline/$name'));
+      if (response.statusCode == 200) {
+        await file.parent.create(recursive: true);
+        await file.writeAsString(response.body);
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
     if (await file.exists()) {
       return jsonDecode(await file.readAsString()) as Map<String, dynamic>;
     }
-    try {
-      final response = await http.get(Uri.parse('$repoBase/timeline/$name'));
-      if (response.statusCode != 200) return null;
-      await file.parent.create(recursive: true);
-      await file.writeAsString(response.body);
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    } catch (_) {
-      return null;
-    }
+    return null;
   }
 
   Future<String?> getCachedAudioPath(String surahNumber) async {
