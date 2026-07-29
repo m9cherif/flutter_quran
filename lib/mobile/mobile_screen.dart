@@ -526,30 +526,21 @@ class _MobileScreenState extends State<MobileScreen> {
     for (var i = 0; i < allSorted.length; i++) {
       if (sortedIndex.contains(i)) _sortedWords.add(allSorted[i]);
     }
-    final fullShow = _timelineData!['events']
-        .where((e) => e['action'] == 'show')
-        .cast<Map<String, dynamic>>()
-        .toList();
-    final ayahShowEvents = <Map<String, dynamic>>[];
-    final maxIdx = fullShow.length;
+    final allEvents = _timelineData!['events'] as List;
+    final ayahEvents = <Map<String, dynamic>>[];
     for (final si in sortedIndex) {
-      if (si < maxIdx) ayahShowEvents.add(fullShow[si]);
+      if (si < allEvents.length) ayahEvents.add(allEvents[si] as Map<String, dynamic>);
     }
-    if (ayahShowEvents.isEmpty) return;
-    final firstTime = ayahShowEvents.first['time'] as int;
-    final lastTime = ayahShowEvents.last['time'] as int;
+    if (ayahEvents.isEmpty) return;
+    final firstTime = ayahEvents.first['time'] as int;
+    final lastTime = ayahEvents.last['time'] as int;
     _ayahEndTime = lastTime + 3000;
-    final ayahEventIds = ayahShowEvents.map((e) => e['word_id']).toSet();
-    final ayahEvents = (_timelineData!['events'] as List)
-        .where((e) => e['action'] == 'show' && ayahEventIds.contains(e['word_id']))
-        .cast<Map<String, dynamic>>()
-        .toList();
     _savedTimelineEvents = _timelineEvents;
     _savedShowEvents = List.from(_showEvents);
     audioManager.positionNotifier.removeListener(_onTimelinePosition);
     _timelineIndex = 0;
     _currentPlaybackWordId = null;
-    _showEvents = ayahShowEvents;
+    _showEvents = ayahEvents;
     _timelineEvents = ayahEvents;
     final audioPath = _timelineData?['audio_file'] as String?;
     if (audioPath != null) {
