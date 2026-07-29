@@ -546,6 +546,7 @@ class _MobileScreenState extends State<MobileScreen> {
     final firstTime = ayahEvents.first['time'] as int;
     final lastTime = ayahEvents.last['time'] as int;
     debugPrint('AYAH: firstTime=$firstTime lastTime=$lastTime');
+    final seekTime = firstTime + 80;
     _ayahEndTime = lastTime + 3000;
     _savedTimelineEvents = _timelineEvents;
     _savedShowEvents = List.from(_showEvents);
@@ -565,8 +566,8 @@ class _MobileScreenState extends State<MobileScreen> {
       final surah = filename.split('.').first;
       if (surah.isNotEmpty) {
         final url = dataService.getSurahAudioUrl(surah);
-        debugPrint('AYAH: url=$url firstTime=$firstTime');
-        await audioManager.playUrlFromPosition(url, firstTime);
+        debugPrint('AYAH: url=$url seekTime=$seekTime');
+        await audioManager.playUrlFromPosition(url, seekTime);
       }
     }
     debugPrint('AYAH: done');
