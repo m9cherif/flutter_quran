@@ -551,9 +551,13 @@ class _MobileScreenState extends State<MobileScreen> {
     _savedShowEvents = List.from(_showEvents);
     audioManager.positionNotifier.removeListener(_onTimelinePosition);
     _timelineIndex = 0;
-    _currentPlaybackWordId = null;
     _showEvents = ayahEvents;
     _timelineEvents = ayahEvents;
+    _currentPlaybackWordId = _sortedWords.isNotEmpty ? _sortedWords.first.id : null;
+    provider.selectWordById(_currentPlaybackWordId!);
+    _timelinePlaying = true;
+    audioManager.positionNotifier.addListener(_onTimelinePosition);
+    if (mounted) setState(() {});
     final audioPath = _timelineData?['audio_file'] as String?;
     debugPrint('AYAH: audioPath=$audioPath');
     if (audioPath != null) {
@@ -565,10 +569,6 @@ class _MobileScreenState extends State<MobileScreen> {
         await audioManager.playUrlFromPosition(url, firstTime);
       }
     }
-    _timelinePlaying = true;
-    audioManager.positionNotifier.addListener(_onTimelinePosition);
-    _onTimelinePosition();
-    if (mounted) setState(() {});
     debugPrint('AYAH: done');
   }
 
