@@ -515,13 +515,17 @@ class _MobileScreenState extends State<MobileScreen> {
     if (ayaNo == null || _timelineData == null) return;
     final ayaWords = provider.wordsByAya(ayaNo);
     if (ayaWords.isEmpty) return;
-    _sortedWords = provider.getSortedWords();
+    final allSorted = provider.getSortedWords();
     final sortedIndex = <int>{};
     for (final w in ayaWords) {
-      final idx = _sortedWords.indexOf(w);
+      final idx = allSorted.indexOf(w);
       if (idx >= 0) sortedIndex.add(idx);
     }
     if (sortedIndex.isEmpty) return;
+    _sortedWords = [];
+    for (var i = 0; i < allSorted.length; i++) {
+      if (sortedIndex.contains(i)) _sortedWords.add(allSorted[i]);
+    }
     final fullShow = _timelineData!['events']
         .where((e) => e['action'] == 'show')
         .cast<Map<String, dynamic>>()
