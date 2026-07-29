@@ -11,6 +11,7 @@ import '../services/audio_manager.dart';
 import 'package:flutter_quran/l10n/app_localizations.dart';
 import '../models/annotation.dart';
 import '../widgets/annotation_painter.dart';
+import '../widgets/surah_list_screen.dart';
 import 'mobile_data_service.dart';
 
 class AppSettings {
@@ -1271,16 +1272,9 @@ class _MobileScreenState extends State<MobileScreen> {
               if (_isLoading) {
                 return const Center(child: CircularProgressIndicator(color: Color(0xFFD4A843)));
               }
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.auto_stories, size: 60, color: Colors.white24),
-                    const SizedBox(height: 12),
-                    Text(tr(_settings.language, 'enterPageNumber'),
-                        style: const TextStyle(color: Colors.white38, fontSize: 16)),
-                  ],
-                ),
+              return SurahListScreen(
+                dataService: dataService,
+                onNavigate: (page) => loadPage(page),
               );
             }
 

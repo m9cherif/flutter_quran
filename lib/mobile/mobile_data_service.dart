@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import '../models/surah.dart';
 
 class MobileDataService {
   static const String defaultRepo =
@@ -132,5 +133,28 @@ class MobileDataService {
     if (await file.exists()) {
       await file.delete();
     }
+  }
+
+  Future<List<Surah>> getSurahIndex() async {
+    final local = '${await _cacheDir}/surah_index.json';
+    final file = File(local);
+    if (await file.exists()) {
+      final list = jsonDecode(await file.readAsString()) as List;
+      return list.map((e) => Surah.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    try {
+      final response = await http.get(Uri.parse('$repoBase/surah_index.json'));
+      if (response.statusCode == 200) {
+        await file.parent.create(recursive: true);
+        await file.writeAsString(response.body);
+        final list = jsonDecode(response.body) as List;
+        return list.map((e) => Surah.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    if (await file.exists()) {
+      final list = jsonDecode(await file.readAsString()) as List;
+      return list.map((e) => Surah.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
   }
 }
