@@ -418,7 +418,11 @@ class _MobileScreenState extends State<MobileScreen> {
       if (_ayahSelectMode) {
         _currentPlaybackWordId = hit.id;
         provider.selectAnnotation(hit);
-        _startAyahPlayback(hit.ayaNo);
+        _startAyahPlayback(hit.ayaNo).catchError((e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ayah error: $e')));
+          }
+        });
       } else {
         provider.trySelectElement(imgPos);
       }
@@ -512,8 +516,13 @@ class _MobileScreenState extends State<MobileScreen> {
   }
 
   Future<void> _startAyahPlayback(int? ayaNo) async {
-    if (ayaNo == null || _timelineData == null) return;
+    debugPrint('AYAH: ayaNo=$ayaNo tl=${_timelineData != null} loaded=${_timelineData?['events']?.length}');
+    if (ayaNo == null || _timelineData == null) {
+      debugPrint('AYAH: early return - null');
+      return;
+    }
     final ayaWords = provider.wordsByAya(ayaNo);
+    debugPrint('AYAH: ayaWords=${ayaWords.length}');
     if (ayaWords.isEmpty) return;
     final allSorted = provider.getSortedWords();
     final sortedIndex = <int>{};
@@ -521,6 +530,7 @@ class _MobileScreenState extends State<MobileScreen> {
       final idx = allSorted.indexOf(w);
       if (idx >= 0) sortedIndex.add(idx);
     }
+    debugPrint('AYAH: sortedIndex=${sortedIndex.length} allSorted=${allSorted.length}');
     if (sortedIndex.isEmpty) return;
     _sortedWords = [];
     for (var i = 0; i < allSorted.length; i++) {
@@ -531,9 +541,11 @@ class _MobileScreenState extends State<MobileScreen> {
     for (final si in sortedIndex) {
       if (si < allEvents.length) ayahEvents.add(allEvents[si] as Map<String, dynamic>);
     }
+    debugPrint('AYAH: ayahEvents=${ayahEvents.length} allEvents=${allEvents.length}');
     if (ayahEvents.isEmpty) return;
     final firstTime = ayahEvents.first['time'] as int;
     final lastTime = ayahEvents.last['time'] as int;
+    debugPrint('AYAH: firstTime=$firstTime lastTime=$lastTime');
     _ayahEndTime = lastTime + 3000;
     _savedTimelineEvents = _timelineEvents;
     _savedShowEvents = List.from(_showEvents);
@@ -543,11 +555,13 @@ class _MobileScreenState extends State<MobileScreen> {
     _showEvents = ayahEvents;
     _timelineEvents = ayahEvents;
     final audioPath = _timelineData?['audio_file'] as String?;
+    debugPrint('AYAH: audioPath=$audioPath');
     if (audioPath != null) {
       final filename = audioPath.split(RegExp(r'[/\\]')).last;
       final surah = filename.split('.').first;
       if (surah.isNotEmpty) {
         final url = dataService.getSurahAudioUrl(surah);
+        debugPrint('AYAH: url=$url firstTime=$firstTime');
         await audioManager.playUrlFromPosition(url, firstTime);
       }
     }
@@ -555,6 +569,7 @@ class _MobileScreenState extends State<MobileScreen> {
     audioManager.positionNotifier.addListener(_onTimelinePosition);
     _onTimelinePosition();
     if (mounted) setState(() {});
+    debugPrint('AYAH: done');
   }
 
   Future<void> _startPlayback() async {
