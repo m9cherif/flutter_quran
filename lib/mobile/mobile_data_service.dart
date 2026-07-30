@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../models/surah.dart';
+import '../models/hizb_quarter.dart';
 
 class MobileDataService {
   static const String defaultRepo =
@@ -136,24 +137,30 @@ class MobileDataService {
   }
 
   Future<List<Surah>> getSurahIndex() async {
-    final local = '${await _cacheDir}/surah_index.json';
+    final list = await _fetchJsonList('surah_index.json');
+    return list.map((e) => Surah.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<HizbQuarter>> getHizbQuarters() async {
+    final list = await _fetchJsonList('hizb_quarters.json');
+    return list.map((e) => HizbQuarter.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<dynamic>> _fetchJsonList(String filename) async {
+    final local = '${await _cacheDir}/$filename';
     final file = File(local);
-    if (await file.exists()) {
-      final list = jsonDecode(await file.readAsString()) as List;
-      return list.map((e) => Surah.fromJson(e as Map<String, dynamic>)).toList();
-    }
+
     try {
-      final response = await http.get(Uri.parse('$repoBase/surah_index.json'));
+      final response = await http.get(Uri.parse('$repoBase/$filename'));
       if (response.statusCode == 200) {
         await file.parent.create(recursive: true);
         await file.writeAsString(response.body);
-        final list = jsonDecode(response.body) as List;
-        return list.map((e) => Surah.fromJson(e as Map<String, dynamic>)).toList();
+        return jsonDecode(response.body) as List<dynamic>;
       }
     } catch (_) {}
+
     if (await file.exists()) {
-      final list = jsonDecode(await file.readAsString()) as List;
-      return list.map((e) => Surah.fromJson(e as Map<String, dynamic>)).toList();
+      return jsonDecode(await file.readAsString()) as List<dynamic>;
     }
     return [];
   }
