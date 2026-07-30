@@ -21,6 +21,7 @@ class _StartupScreenState extends State<StartupScreen>
     with SingleTickerProviderStateMixin {
   List<Surah>? _surahs;
   List<HizbQuarter>? _hizbQuarters;
+  List<List<dynamic>>? _wordIndex;
   bool _loading = true;
   int _tab = 0;
 
@@ -43,10 +44,12 @@ class _StartupScreenState extends State<StartupScreen>
     final results = await Future.wait([
       widget.dataService.getSurahIndex(),
       widget.dataService.getHizbQuarters(),
+      widget.dataService.getWordIndex(),
     ]);
     if (mounted) setState(() {
       _surahs = results[0] as List<Surah>;
       _hizbQuarters = results[1] as List<HizbQuarter>;
+      _wordIndex = results[2] as List<List<dynamic>>;
       _loading = false;
     });
   }
@@ -241,6 +244,7 @@ class _StartupScreenState extends State<StartupScreen>
     final surahMatches = <Surah>[];
     final hizbMatches = <HizbQuarter>[];
     final pageMatches = <int>[];
+    final wordMatches = <_WordMatch>[];
     int? ayahRefSurah;
     int? ayahRefAya;
 
@@ -274,8 +278,23 @@ class _StartupScreenState extends State<StartupScreen>
       }
     }
 
+    if (_wordIndex != null && q.length >= 2) {
+      for (final entry in _wordIndex!) {
+        final text = entry[0] as String;
+        if (text.contains(q)) {
+          wordMatches.add(_WordMatch(
+            text: text,
+            surah: entry[1] as int,
+            ayah: entry[2] as int,
+            page: entry[3] as int,
+          ));
+          if (wordMatches.length >= 20) break;
+        }
+      }
+    }
+
     final hasAny = surahMatches.isNotEmpty || hizbMatches.isNotEmpty ||
-        pageMatches.isNotEmpty || ayahRefSurah != null;
+        wordMatches.isNotEmpty || pageMatches.isNotEmpty || ayahRefSurah != null;
 
     final sectionStyle = TextStyle(color: c.primary, fontSize: 13, fontWeight: FontWeight.bold);
     final cardColor = _surface(t);
@@ -303,6 +322,17 @@ class _StartupScreenState extends State<StartupScreen>
             leading: Text('${h.rub}', style: TextStyle(color: c.primary, fontSize: 11, fontWeight: FontWeight.bold)),
             title: Text('الحزب ${h.hizb} - الربع ${h.quarter}', style: TextStyle(color: c.onSurface, fontSize: 15)),
             subtitle: Text('صفحة ${h.page}', style: TextStyle(color: c.onSurface.withAlpha(138), fontSize: 11)),
+          )),
+        ],
+        if (wordMatches.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 4, right: 4),
+            child: Text('الكلمات', style: sectionStyle),
+          ),
+          ...wordMatches.map((w) => _searchResultCard(cardColor, c, w.page,
+            leading: Icon(Icons.text_fields, color: c.primary, size: 14),
+            title: Text(w.text, style: TextStyle(color: c.onSurface, fontSize: 15)),
+            subtitle: Text('سورة ${w.surah} - الآية ${w.ayah}', style: TextStyle(color: c.onSurface.withAlpha(138), fontSize: 11)),
           )),
         ],
         if (ayahRefSurah != null) ...[
@@ -364,4 +394,17 @@ class _StartupScreenState extends State<StartupScreen>
     final surah = _surahs!.where((s) => s.numSoura == surahNum);
     return surah.isNotEmpty ? surah.first.numPage : 1;
   }
+}
+
+class _WordMatch {
+  final String text;
+  final int surah;
+  final int ayah;
+  final int page;
+  const _WordMatch({
+    required this.text,
+    required this.surah,
+    required this.ayah,
+    required this.page,
+  });
 }

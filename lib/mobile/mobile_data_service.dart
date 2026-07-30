@@ -164,4 +164,9 @@ class MobileDataService {
     }
     return [];
   }
+
+  Future<List<List<dynamic>>> getWordIndex() async {
+    final list = await _fetchJsonList('word_index.json');
+    return list.cast<List<dynamic>>();
+  }
 }
