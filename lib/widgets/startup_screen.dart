@@ -241,7 +241,7 @@ class _StartupScreenState extends State<StartupScreen>
     final surahMatches = <Surah>[];
     final hizbMatches = <HizbQuarter>[];
     final pageMatches = <int>[];
-    String? ayahRefSurah;
+    int? ayahRefSurah;
     int? ayahRefAya;
 
     if (int.tryParse(q) != null) {
