@@ -832,8 +832,18 @@ class _MobileScreenState extends State<MobileScreen> {
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.chevron_left, color: Color(0xFFD4A843), size: 24),
-                onPressed: () => _navigatePage(-1),
+                icon: const Icon(Icons.home, color: Color(0xFFD4A843), size: 20),
+                onPressed: () {
+                  audioManager.stopPlayback();
+                  setState(() {
+                    _timelinePlaying = false;
+                    _ayahSelectMode = false;
+                    _timelineEvents = null;
+                    _currentPlaybackWordId = null;
+                    _ayahEndTime = null;
+                  });
+                  provider.clearAll();
+                },
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 36),
               ),
@@ -910,12 +920,6 @@ class _MobileScreenState extends State<MobileScreen> {
                 onPressed: _showSettings,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 30, minHeight: 36),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right, color: Color(0xFFD4A843), size: 24),
-                onPressed: () => _navigatePage(1),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 36),
               ),
             ],
           ),
