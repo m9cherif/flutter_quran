@@ -240,6 +240,7 @@ class _StartupScreenState extends State<StartupScreen>
   Widget _buildSearchResults(ThemeData t, ColorScheme c) {
     final q = _query;
     final ql = q.toLowerCase();
+    final qClean = q.replaceAll(RegExp(r'[\u064B-\u065F\u0670\u0610-\u061A\u06D6-\u06ED]'), '');
 
     final surahMatches = <Surah>[];
     final hizbMatches = <HizbQuarter>[];
@@ -278,10 +279,10 @@ class _StartupScreenState extends State<StartupScreen>
       }
     }
 
-    if (_wordIndex != null && q.length >= 2) {
+    if (_wordIndex != null && qClean.length >= 2) {
       for (final entry in _wordIndex!) {
         final text = entry[0] as String;
-        if (text.contains(q)) {
+        if (text.contains(qClean)) {
           wordMatches.add(_WordMatch(
             text: text,
             surah: entry[1] as int,

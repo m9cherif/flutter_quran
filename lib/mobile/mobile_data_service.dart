@@ -150,6 +150,12 @@ class MobileDataService {
     final local = '${await _cacheDir}/$filename';
     final file = File(local);
 
+    if (await file.exists()) {
+      try {
+        return jsonDecode(await file.readAsString()) as List<dynamic>;
+      } catch (_) {}
+    }
+
     try {
       final response = await http.get(Uri.parse('$repoBase/$filename'));
       if (response.statusCode == 200) {
@@ -159,9 +165,6 @@ class MobileDataService {
       }
     } catch (_) {}
 
-    if (await file.exists()) {
-      return jsonDecode(await file.readAsString()) as List<dynamic>;
-    }
     return [];
   }
 
