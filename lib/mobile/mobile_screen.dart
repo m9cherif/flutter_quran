@@ -748,8 +748,8 @@ class _MobileScreenState extends State<MobileScreen> {
           if (_isLoading)
             Positioned.fill(
               child: Container(
-                color: Colors.black54,
-                child: const Center(child: CircularProgressIndicator(color: Color(0xFFD4A843))),
+                color: Theme.of(context).colorScheme.onSurface.withAlpha(30),
+                child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
               ),
             ),
           if (_errorMessage != null)
@@ -760,12 +760,12 @@ class _MobileScreenState extends State<MobileScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade900.withAlpha(200),
+                    color: Theme.of(context).colorScheme.error.withAlpha(200),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     _errorMessage!,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onError, fontSize: 13),
                   ),
                 ),
               ),
@@ -977,7 +977,8 @@ class _MobileScreenState extends State<MobileScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -997,14 +998,14 @@ class _MobileScreenState extends State<MobileScreen> {
                   child: Container(
                     width: 40, height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white24,
+                      color: Theme.of(context).colorScheme.onSurface.withAlpha(61),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text(tr(_settings.language, 'settings'), style: const TextStyle(color: Color(0xFFD4A843), fontSize: 20, fontWeight: FontWeight.bold)),
-                const Divider(color: Colors.white12),
+                Text(tr(_settings.language, 'settings'), style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 20, fontWeight: FontWeight.bold)),
+                Divider(color: Theme.of(context).colorScheme.onSurface.withAlpha(30)),
                 _sectionHeader(tr(_settings.language, 'display')),
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'showWordBoxes'), Icons.text_fields, _settings.showWordBoxes, (v) { _settings.showWordBoxes = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'showHLines'), Icons.horizontal_rule, _settings.showHLines, (v) { _settings.showHLines = v; _applySettings(); }),
@@ -1019,7 +1020,7 @@ class _MobileScreenState extends State<MobileScreen> {
                 _sliderTile(ctx, setSheetState, tr(_settings.language, 'imageCornerRadius'), '${_settings.imageCornerRadius}', _settings.imageCornerRadius.toDouble(), 0, 30, (v) { _settings.imageCornerRadius = v.round(); _applySettings(); }),
                 _sliderTile(ctx, setSheetState, tr(_settings.language, 'highlightOpacity'), '${(_settings.highlightOpacity * 100).round()}%', _settings.highlightOpacity * 100, 5, 50, (v) { _settings.highlightOpacity = v / 100; _applySettings(); }),
                 _sliderTile(ctx, setSheetState, tr(_settings.language, 'brightness'), '${(_settings.brightness * 100).round()}%', _settings.brightness * 100, 30, 100, (v) { _settings.brightness = v / 100; _applySettings(); }),
-                const Divider(color: Colors.white12),
+                Divider(color: Theme.of(context).colorScheme.onSurface.withAlpha(30)),
                 _sectionHeader(tr(_settings.language, 'pageSettings')),
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'showPageNumOnImage'), Icons.numbers, _settings.showPageNumOnImage, (v) { _settings.showPageNumOnImage = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'pageNumBg'), Icons.sticky_note_2, _settings.pageNumBg, (v) { _settings.pageNumBg = v; _applySettings(); }),
@@ -1029,7 +1030,7 @@ class _MobileScreenState extends State<MobileScreen> {
                 _sliderTile(ctx, setSheetState, tr(_settings.language, 'pageNumSize'), '${_settings.pageNumSize}', _settings.pageNumSize.toDouble(), 10, 48, (v) { _settings.pageNumSize = v.round(); _applySettings(); }),
                 _sliderTile(ctx, setSheetState, tr(_settings.language, 'pageNumOffset'), '${_settings.pageNumOffset}', _settings.pageNumOffset.toDouble(), 0, 50, (v) { _settings.pageNumOffset = v.round(); _applySettings(); }),
                 _colorPickerTile(ctx, setSheetState, tr(_settings.language, 'pageNumColor'), _settings.pageNumColor, (v) { _settings.pageNumColor = v; _applySettings(); }),
-                const Divider(color: Colors.white12),
+                Divider(color: Theme.of(context).colorScheme.onSurface.withAlpha(30)),
                 _sectionHeader(tr(_settings.language, 'navigation')),
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'swipeNavigation'), Icons.swipe, _settings.swipeNavigation, (v) { _settings.swipeNavigation = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'tapZones'), Icons.touch_app, _settings.tapZones, (v) { _settings.tapZones = v; _applySettings(); }),
@@ -1038,11 +1039,11 @@ class _MobileScreenState extends State<MobileScreen> {
                 _sliderTile(ctx, setSheetState, tr(_settings.language, 'swipeThreshold'), '${_settings.swipeThreshold.toInt()}px', _settings.swipeThreshold, 20, 150, (v) { _settings.swipeThreshold = v; _applySettings(); }),
                 _sliderTile(ctx, setSheetState, tr(_settings.language, 'overlayTimeoutSec'), '${_settings.overlayTimeoutSec}${tr(_settings.language, 'sec')}', _settings.overlayTimeoutSec.toDouble(), 1, 10, (v) { _settings.overlayTimeoutSec = v.round(); _applySettings(); }),
                 _sliderTile(ctx, setSheetState, tr(_settings.language, 'autoScrollInterval'), _settings.autoScrollInterval > 0 ? '${tr(_settings.language, 'every')} ${_settings.autoScrollInterval}${tr(_settings.language, 'sec')}' : tr(_settings.language, 'disabled'), _settings.autoScrollInterval.toDouble(), 0, 30, (v) { _settings.autoScrollInterval = v.round(); _applySettings(); }),
-                const Divider(color: Colors.white12),
+                Divider(color: Theme.of(context).colorScheme.onSurface.withAlpha(30)),
                 _sectionHeader(tr(_settings.language, 'audio')),
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'autoLoadAudio'), Icons.music_note, _settings.autoLoadAudio, (v) { _settings.autoLoadAudio = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'vibrateOnWord'), Icons.vibration, _settings.vibrateOnWord, (v) { _settings.vibrateOnWord = v; _applySettings(); }),
-                const Divider(color: Colors.white12),
+                Divider(color: Theme.of(context).colorScheme.onSurface.withAlpha(30)),
                 _sectionHeader(tr(_settings.language, 'other')),
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'darkBg'), Icons.dark_mode, _settings.darkBg, (v) { _settings.darkBg = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'hideSystemUI'), Icons.notifications_off, _settings.hideSystemUI, (v) { _settings.hideSystemUI = v; _applySettings(); }),
@@ -1052,9 +1053,9 @@ class _MobileScreenState extends State<MobileScreen> {
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'showProgressBar'), Icons.show_chart, _settings.showProgressBar, (v) { _settings.showProgressBar = v; _applySettings(); }),
                 _switchTile(ctx, setSheetState, tr(_settings.language, 'alwaysShowPageInput'), Icons.keyboard, _settings.alwaysShowPageInput, (v) { _settings.alwaysShowPageInput = v; _applySettings(); }),
                 _colorPickerTile(ctx, setSheetState, tr(_settings.language, 'highlightColor'), _settings.highlightColor, (v) { _settings.highlightColor = v; _applySettings(); }),
-                const Divider(color: Colors.white12),
+                Divider(color: Theme.of(context).colorScheme.onSurface.withAlpha(30)),
                 _languageTile(ctx, setSheetState),
-                const Divider(color: Colors.white12),
+                Divider(color: Theme.of(context).colorScheme.onSurface.withAlpha(30)),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: TextButton.icon(
@@ -1070,8 +1071,8 @@ class _MobileScreenState extends State<MobileScreen> {
                         );
                       }
                     },
-                    icon: const Icon(Icons.delete_sweep, color: Colors.redAccent, size: 20),
-                    label: Text(tr(_settings.language, 'clearCache'), style: const TextStyle(color: Colors.redAccent)),
+                    icon: Icon(Icons.delete_sweep, color: Theme.of(context).colorScheme.error, size: 20),
+                    label: Text(tr(_settings.language, 'clearCache'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
                   ),
                 ),
               ],
@@ -1083,14 +1084,15 @@ class _MobileScreenState extends State<MobileScreen> {
   }
 
   Widget _switchTile(BuildContext ctx, void Function(void Function()) setSheetState, String label, IconData icon, bool value, void Function(bool) onChange) {
+    final c = Theme.of(ctx).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: ListTile(
-        leading: Icon(icon, color: const Color(0xFFD4A843), size: 20),
-        title: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
+        leading: Icon(icon, color: c.primary, size: 20),
+        title: Text(label, style: TextStyle(color: c.onSurface, fontSize: 14)),
         trailing: Switch(
           value: value,
-          activeColor: const Color(0xFFD4A843),
+          activeColor: c.primary,
           onChanged: (v) { onChange(v); setSheetState(() {}); },
         ),
         dense: true,
@@ -1102,16 +1104,17 @@ class _MobileScreenState extends State<MobileScreen> {
   Widget _sectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 2),
-      child: Text(title, style: const TextStyle(color: Color(0xFFD4A843), fontSize: 15, fontWeight: FontWeight.bold)),
+      child: Text(title, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 15, fontWeight: FontWeight.bold)),
     );
   }
 
   Widget _languageTile(BuildContext ctx, void Function(void Function()) setSheetState) {
+    final c = Theme.of(ctx).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: ListTile(
-        leading: const Icon(Icons.language, color: Color(0xFFD4A843), size: 20),
-        title: Text(tr(_settings.language, 'language'), style: const TextStyle(color: Colors.white, fontSize: 14)),
+        leading: Icon(Icons.language, color: c.primary, size: 20),
+        title: Text(tr(_settings.language, 'language'), style: TextStyle(color: c.onSurface, fontSize: 14)),
         trailing: SegmentedButton<String>(
           segments: [
             ButtonSegment(value: 'ar', label: Text(tr(_settings.language, 'arabic'), style: const TextStyle(fontSize: 12))),
@@ -1131,6 +1134,7 @@ class _MobileScreenState extends State<MobileScreen> {
   }
 
   Widget _sliderTile(BuildContext ctx, void Function(void Function()) setSheetState, String label, String display, double value, double min, double max, void Function(double) onChange) {
+    final c = Theme.of(ctx).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(
@@ -1138,18 +1142,18 @@ class _MobileScreenState extends State<MobileScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.tune, color: Color(0xFFD4A843), size: 16),
+              Icon(Icons.tune, color: c.primary, size: 16),
               const SizedBox(width: 8),
-              Text('$label: ', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-              Text(display, style: const TextStyle(color: Color(0xFFD4A843), fontSize: 13, fontWeight: FontWeight.bold)),
+              Text('$label: ', style: TextStyle(color: c.onSurface.withAlpha(179), fontSize: 13)),
+              Text(display, style: TextStyle(color: c.primary, fontSize: 13, fontWeight: FontWeight.bold)),
             ],
           ),
           Slider(
             value: value,
             min: min,
             max: max,
-            activeColor: const Color(0xFFD4A843),
-            inactiveColor: Colors.white12,
+            activeColor: c.primary,
+            inactiveColor: c.onSurface.withAlpha(30),
             onChanged: (v) { onChange(v); setSheetState(() {}); },
           ),
         ],
@@ -1158,6 +1162,7 @@ class _MobileScreenState extends State<MobileScreen> {
   }
 
   Widget _colorPickerTile(BuildContext ctx, void Function(void Function()) setSheetState, String label, String current, void Function(String) onChange) {
+    final c = Theme.of(ctx).colorScheme;
     final colors = ['yellow', 'red', 'green', 'blue', 'orange', 'pink'];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1166,25 +1171,25 @@ class _MobileScreenState extends State<MobileScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.palette, color: Color(0xFFD4A843), size: 16),
+              Icon(Icons.palette, color: c.primary, size: 16),
               const SizedBox(width: 8),
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              Text(label, style: TextStyle(color: c.onSurface.withAlpha(179), fontSize: 13)),
             ],
           ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
-            children: colors.map((c) {
-              final color = _colorFromName(c);
+            children: colors.map((clr) {
+              final color = _colorFromName(clr);
               return GestureDetector(
-                onTap: () { onChange(c); setSheetState(() {}); },
+                onTap: () { onChange(clr); setSheetState(() {}); },
                 child: Container(
                   width: 32, height: 32,
                   decoration: BoxDecoration(
                     color: color,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: current == c ? Colors.white : Colors.transparent,
+                      color: current == clr ? c.onSurface : Colors.transparent,
                       width: 2,
                     ),
                   ),

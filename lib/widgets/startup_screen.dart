@@ -60,63 +60,75 @@ class _StartupScreenState extends State<StartupScreen>
     super.dispose();
   }
 
+  Color _surface(ThemeData t) => t.brightness == Brightness.dark
+      ? const Color(0xFF1A1A1A)
+      : Colors.white;
+
+  Color _surfaceDim(ThemeData t) => t.brightness == Brightness.dark
+      ? const Color(0xFF2A2A2A)
+      : const Color(0xFFF0EDE6);
+
   @override
   Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final c = t.colorScheme;
+
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFFD4A843)));
+      return Center(child: CircularProgressIndicator(color: c.primary));
     }
     if (_surahs == null || _surahs!.isEmpty) {
-      return _buildError();
+      return _buildError(c);
     }
     return Column(
       children: [
-        _buildSearchBar(),
+        _buildSearchBar(t, c),
         if (_query.isEmpty)
-          _buildTabs()
+          _buildTabs(t, c)
         else
-          Expanded(child: _buildSearchResults()),
+          Expanded(child: _buildSearchResults(t, c)),
       ],
     );
   }
 
-  Widget _buildError() {
+  Widget _buildError(ColorScheme c) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, size: 60, color: Colors.white24),
+          Icon(Icons.error_outline, size: 60, color: c.onSurface.withAlpha(97)),
           const SizedBox(height: 12),
-          const Text('فشل تحميل الفهرس', style: TextStyle(color: Colors.white38, fontSize: 16)),
+          Text('فشل تحميل الفهرس',
+              style: TextStyle(color: c.onSurface.withAlpha(138), fontSize: 16)),
           const SizedBox(height: 16),
           TextButton.icon(
             onPressed: _load,
-            icon: const Icon(Icons.refresh, color: Color(0xFFD4A843)),
-            label: const Text('إعادة المحاولة', style: TextStyle(color: Color(0xFFD4A843))),
+            icon: Icon(Icons.refresh, color: c.primary),
+            label: Text('إعادة المحاولة', style: TextStyle(color: c.primary)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(ThemeData t, ColorScheme c) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: TextField(
         controller: _searchCtrl,
         onChanged: _onSearch,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(color: c.onSurface, fontSize: 14),
         decoration: InputDecoration(
           hintText: 'بحث: سورة، حزب، صفحة، رقم الآية...',
-          hintStyle: const TextStyle(color: Colors.white24),
-          prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+          hintStyle: TextStyle(color: c.onSurface.withAlpha(97)),
+          prefixIcon: Icon(Icons.search, color: c.onSurface.withAlpha(97), size: 20),
           suffixIcon: _query.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.white38, size: 18),
+                  icon: Icon(Icons.clear, color: c.onSurface.withAlpha(97), size: 18),
                   onPressed: () { _searchCtrl.clear(); _onSearch(''); },
                 )
               : null,
           filled: true,
-          fillColor: Colors.white10,
+          fillColor: _surfaceDim(t),
           contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
         ),
@@ -124,24 +136,24 @@ class _StartupScreenState extends State<StartupScreen>
     );
   }
 
-  Widget _buildTabs() {
+  Widget _buildTabs(ThemeData t, ColorScheme c) {
     return Expanded(
       child: Column(
         children: [
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white10,
+              color: _surfaceDim(t),
               borderRadius: BorderRadius.circular(8),
             ),
             child: TabBar(
               controller: _tabCtrl,
               indicator: BoxDecoration(
-                color: const Color(0xFFD4A843).withAlpha(60),
+                color: c.primary.withAlpha(60),
                 borderRadius: BorderRadius.circular(8),
               ),
-              labelColor: const Color(0xFFD4A843),
-              unselectedLabelColor: Colors.white38,
+              labelColor: c.primary,
+              unselectedLabelColor: c.onSurface.withAlpha(138),
               indicatorSize: TabBarIndicatorSize.tab,
               dividerColor: Colors.transparent,
               tabs: [
@@ -154,8 +166,8 @@ class _StartupScreenState extends State<StartupScreen>
             child: TabBarView(
               controller: _tabCtrl,
               children: [
-                _buildSurahList(),
-                _buildHizbList(),
+                _buildSurahList(t, c),
+                _buildHizbList(t, c),
               ],
             ),
           ),
@@ -164,59 +176,65 @@ class _StartupScreenState extends State<StartupScreen>
     );
   }
 
-  Widget _buildSurahList() {
+  Widget _buildSurahList(ThemeData t, ColorScheme c) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       itemCount: _surahs!.length,
       itemBuilder: (context, i) {
         final s = _surahs![i];
         return Card(
-          color: Colors.white10,
+          color: _surface(t),
           margin: const EdgeInsets.symmetric(vertical: 3),
           child: ListTile(
             dense: true,
             onTap: () => widget.onNavigate('${s.numPage}'),
             leading: CircleAvatar(
               radius: 18,
-              backgroundColor: const Color(0xFFD4A843).withAlpha(50),
-              child: Text('${s.numSoura}', style: const TextStyle(color: Color(0xFFD4A843), fontSize: 12, fontWeight: FontWeight.bold)),
+              backgroundColor: c.primary.withAlpha(50),
+              child: Text('${s.numSoura}',
+                  style: TextStyle(color: c.primary, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
-            title: Text(s.soura, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
-            subtitle: Text('صفحة ${s.numPage}  •  ${s.nbrAya} آية', style: const TextStyle(color: Colors.white38, fontSize: 12)),
-            trailing: const Icon(Icons.chevron_left, color: Colors.white24, size: 20),
+            title: Text(s.soura,
+                style: TextStyle(color: c.onSurface, fontSize: 16, fontWeight: FontWeight.w500)),
+            subtitle: Text('صفحة ${s.numPage}  •  ${s.nbrAya} آية',
+                style: TextStyle(color: c.onSurface.withAlpha(138), fontSize: 12)),
+            trailing: Icon(Icons.chevron_left, color: c.onSurface.withAlpha(61), size: 20),
           ),
         );
       },
     );
   }
 
-  Widget _buildHizbList() {
+  Widget _buildHizbList(ThemeData t, ColorScheme c) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       itemCount: _hizbQuarters!.length,
       itemBuilder: (context, i) {
         final h = _hizbQuarters![i];
         return Card(
-          color: Colors.white10,
+          color: _surface(t),
           margin: const EdgeInsets.symmetric(vertical: 3),
           child: ListTile(
             dense: true,
             onTap: () => widget.onNavigate('${h.page}'),
             leading: CircleAvatar(
               radius: 18,
-              backgroundColor: const Color(0xFFD4A843).withAlpha(50),
-              child: Text('${h.rub}', style: const TextStyle(color: Color(0xFFD4A843), fontSize: 12, fontWeight: FontWeight.bold)),
+              backgroundColor: c.primary.withAlpha(50),
+              child: Text('${h.rub}',
+                  style: TextStyle(color: c.primary, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
-            title: Text('الحزب ${h.hizb} - الربع ${h.quarter}', style: const TextStyle(color: Colors.white, fontSize: 15)),
-            subtitle: Text('صفحة ${h.page}', style: const TextStyle(color: Colors.white38, fontSize: 12)),
-            trailing: const Icon(Icons.chevron_left, color: Colors.white24, size: 20),
+            title: Text('الحزب ${h.hizb} - الربع ${h.quarter}',
+                style: TextStyle(color: c.onSurface, fontSize: 15)),
+            subtitle: Text('صفحة ${h.page}',
+                style: TextStyle(color: c.onSurface.withAlpha(138), fontSize: 12)),
+            trailing: Icon(Icons.chevron_left, color: c.onSurface.withAlpha(61), size: 20),
           ),
         );
       },
     );
   }
 
-  Widget _buildSearchResults() {
+  Widget _buildSearchResults(ThemeData t, ColorScheme c) {
     final q = _query;
     final ql = q.toLowerCase();
 
@@ -259,104 +277,86 @@ class _StartupScreenState extends State<StartupScreen>
     final hasAny = surahMatches.isNotEmpty || hizbMatches.isNotEmpty ||
         pageMatches.isNotEmpty || ayahRefSurah != null;
 
+    final sectionStyle = TextStyle(color: c.primary, fontSize: 13, fontWeight: FontWeight.bold);
+    final cardColor = _surface(t);
+
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       children: [
         if (surahMatches.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 4, right: 4),
-            child: Text('السور', style: TextStyle(color: Color(0xFFD4A843), fontSize: 13, fontWeight: FontWeight.bold)),
+            child: Text('السور', style: sectionStyle),
           ),
-          ...surahMatches.map((s) => Card(
-            color: Colors.white10,
-            margin: const EdgeInsets.symmetric(vertical: 2),
-            child: ListTile(
-              dense: true,
-              onTap: () => widget.onNavigate('${s.numPage}'),
-              leading: CircleAvatar(
-                radius: 16,
-                backgroundColor: const Color(0xFFD4A843).withAlpha(50),
-                child: Text('${s.numSoura}', style: const TextStyle(color: Color(0xFFD4A843), fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-              title: Text(s.soura, style: const TextStyle(color: Colors.white, fontSize: 15)),
-              subtitle: Text('صفحة ${s.numPage}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
-              trailing: const Icon(Icons.chevron_left, color: Colors.white24, size: 18),
-            ),
+          ...surahMatches.map((s) => _searchResultCard(cardColor, c, s.numPage,
+            leading: Text('${s.numSoura}', style: TextStyle(color: c.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+            title: Text(s.soura, style: TextStyle(color: c.onSurface, fontSize: 15)),
+            subtitle: Text('صفحة ${s.numPage}', style: TextStyle(color: c.onSurface.withAlpha(138), fontSize: 11)),
           )),
         ],
         if (hizbMatches.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 4, right: 4),
-            child: Text('الأحزاب', style: TextStyle(color: Color(0xFFD4A843), fontSize: 13, fontWeight: FontWeight.bold)),
+            child: Text('الأحزاب', style: sectionStyle),
           ),
-          ...hizbMatches.map((h) => Card(
-            color: Colors.white10,
-            margin: const EdgeInsets.symmetric(vertical: 2),
-            child: ListTile(
-              dense: true,
-              onTap: () => widget.onNavigate('${h.page}'),
-              leading: CircleAvatar(
-                radius: 16,
-                backgroundColor: const Color(0xFFD4A843).withAlpha(50),
-                child: Text('${h.rub}', style: const TextStyle(color: Color(0xFFD4A843), fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-              title: Text('الحزب ${h.hizb} - الربع ${h.quarter}', style: const TextStyle(color: Colors.white, fontSize: 15)),
-              subtitle: Text('صفحة ${h.page}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
-              trailing: const Icon(Icons.chevron_left, color: Colors.white24, size: 18),
-            ),
+          ...hizbMatches.map((h) => _searchResultCard(cardColor, c, h.page,
+            leading: Text('${h.rub}', style: TextStyle(color: c.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+            title: Text('الحزب ${h.hizb} - الربع ${h.quarter}', style: TextStyle(color: c.onSurface, fontSize: 15)),
+            subtitle: Text('صفحة ${h.page}', style: TextStyle(color: c.onSurface.withAlpha(138), fontSize: 11)),
           )),
         ],
         if (ayahRefSurah != null) ...[
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 4, right: 4),
-            child: Text('الآيات', style: TextStyle(color: Color(0xFFD4A843), fontSize: 13, fontWeight: FontWeight.bold)),
+            child: Text('الآيات', style: sectionStyle),
           ),
-          Card(
-            color: Colors.white10,
-            margin: const EdgeInsets.symmetric(vertical: 2),
-            child: ListTile(
-              dense: true,
-              onTap: () => widget.onNavigate('${_findSurahPage(ayahRefSurah)}'),
-              leading: CircleAvatar(
-                radius: 16,
-                backgroundColor: const Color(0xFFD4A843).withAlpha(50),
-                child: Text('$ayahRefSurah', style: const TextStyle(color: Color(0xFFD4A843), fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-              title: Text('سورة ${ayahRefSurah} - الآية ${ayahRefAya}', style: const TextStyle(color: Colors.white, fontSize: 15)),
-              subtitle: Text('صفحة ${_findSurahPage(ayahRefSurah)}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
-              trailing: const Icon(Icons.chevron_left, color: Colors.white24, size: 18),
-            ),
+          _searchResultCard(cardColor, c, _findSurahPage(ayahRefSurah),
+            leading: Text('$ayahRefSurah', style: TextStyle(color: c.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+            title: Text('سورة $ayahRefSurah - الآية $ayahRefAya', style: TextStyle(color: c.onSurface, fontSize: 15)),
+            subtitle: Text('صفحة ${_findSurahPage(ayahRefSurah)}', style: TextStyle(color: c.onSurface.withAlpha(138), fontSize: 11)),
           ),
         ],
         if (pageMatches.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 4, right: 4),
-            child: Text('الصفحات', style: TextStyle(color: Color(0xFFD4A843), fontSize: 13, fontWeight: FontWeight.bold)),
+            child: Text('الصفحات', style: sectionStyle),
           ),
-          ...pageMatches.map((p) => Card(
-            color: Colors.white10,
-            margin: const EdgeInsets.symmetric(vertical: 2),
-            child: ListTile(
-              dense: true,
-              onTap: () => widget.onNavigate('$p'),
-              leading: CircleAvatar(
-                radius: 16,
-                backgroundColor: const Color(0xFFD4A843).withAlpha(50),
-                child: const Icon(Icons.auto_stories, color: Color(0xFFD4A843), size: 14),
-              ),
-              title: Text('صفحة $p', style: const TextStyle(color: Colors.white, fontSize: 15)),
-              trailing: const Icon(Icons.chevron_left, color: Colors.white24, size: 18),
-            ),
+          ...pageMatches.map((p) => _searchResultCard(cardColor, c, p,
+            leading: Icon(Icons.auto_stories, color: c.primary, size: 14),
+            title: Text('صفحة $p', style: TextStyle(color: c.onSurface, fontSize: 15)),
           )),
         ],
         if (!hasAny)
           Padding(
             padding: const EdgeInsets.only(top: 40),
             child: Center(
-              child: Text('لا توجد نتائج', style: TextStyle(color: Colors.white24, fontSize: 14)),
+              child: Text('لا توجد نتائج', style: TextStyle(color: c.onSurface.withAlpha(61), fontSize: 14)),
             ),
           ),
       ],
+    );
+  }
+
+  Widget _searchResultCard(Color cardColor, ColorScheme c, int page, {
+    required Widget leading,
+    required Widget title,
+    Widget? subtitle,
+  }) {
+    return Card(
+      color: cardColor,
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      child: ListTile(
+        dense: true,
+        onTap: () => widget.onNavigate('$page'),
+        leading: CircleAvatar(
+          radius: 16,
+          backgroundColor: c.primary.withAlpha(50),
+          child: leading,
+        ),
+        title: title,
+        subtitle: subtitle,
+        trailing: Icon(Icons.chevron_left, color: c.onSurface.withAlpha(61), size: 18),
+      ),
     );
   }
 
